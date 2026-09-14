@@ -5,25 +5,26 @@ import { db } from "../components/Firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ShieldCheck, 
-  Truck, 
-  ArrowLeft, 
-  CreditCard, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  AlertCircle, 
-  Loader2, 
-  Sparkles, 
-  CheckCircle2, 
-  Tag, 
-  Home, 
-  Briefcase, 
+import {
+  ShieldCheck,
+  Truck,
+  ArrowLeft,
+  CreditCard,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  AlertCircle,
+  Loader2,
+  Sparkles,
+  CheckCircle2,
+  Tag,
+  Home,
+  Briefcase,
   Building,
   Check
 } from "lucide-react";
+import { load } from "@cashfreepayments/cashfree-js";
 
 const Checkout = () => {
   const { cartItems, cartCount, clearCart } = useStore();
@@ -220,13 +221,13 @@ const Checkout = () => {
     setErrorMessage("");
 
     if (
-      !formData.name.trim() || 
-      !formData.email.trim() || 
-      !formData.phone.trim() || 
-      !formData.houseNumber.trim() || 
-      !formData.street.trim() || 
-      !formData.locality.trim() || 
-      !formData.city.trim() || 
+      !formData.name.trim() ||
+      !formData.email.trim() ||
+      !formData.phone.trim() ||
+      !formData.houseNumber.trim() ||
+      !formData.street.trim() ||
+      !formData.locality.trim() ||
+      !formData.city.trim() ||
       !formData.pincode.trim()
     ) {
       setErrorMessage("Please complete all required fields (Name, Email, Phone, House/Flat, Street, Locality, City, and Pincode).");
@@ -240,79 +241,74 @@ const Checkout = () => {
       return;
     }
 
-    // Online Payment Flow via /api/razorpay/create-order
+    // Online Payment Flow via Cashfree /api/cashfree/create-order
     try {
-      const razorpayRes = await fetch("/api/razorpay/create-order", {
+      const initRes = await fetch("/api/cashfree/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          couponCode: appliedCoupon ? appliedCoupon.split(" ")[0] : null,
           items: checkoutItems.map((i) => ({
             productId: String(i.id).split("_")[0],
             size: i.selectedSize || (i.id.includes("_") ? i.id.split("_")[1] : null),
             quantity: i.quantity || 1
-          }))
+          })),
+          customerDetails: {
+            id: user?.uid || "guest",
+            email: formData.email,
+            phone: formData.phone
+          }
         })
       });
 
-      let rData = {};
+      let cData = {};
       try {
-        rData = await razorpayRes.json();
+        cData = await initRes.json();
       } catch (jsonErr) {
-        if (!razorpayRes.ok) throw new Error(`Razorpay initialization returned server status ${razorpayRes.status}.`);
+        if (!initRes.ok) throw new Error(`Cashfree initialization returned server status ${initRes.status}.`);
       }
 
-      if (!razorpayRes.ok) {
-        throw new Error(rData.error || "Could not initialize online payment.");
+      if (!initRes.ok) {
+        throw new Error(cData.error || "Could not initialize online payment.");
       }
 
-      const RAZORPAY_KEY_ID = process.env.VITE_RAZORPAY_KEY_ID || "rzp_test_1DP5mmOlF5G5ag";
-
-      if (typeof window.Razorpay === "undefined" || rData.razorpayOrderId.startsWith("order_mock_")) {
-        // Dev fallback if Razorpay SDK failed to load or test mock
-        await submitOrderToBackend("online", {
-          razorpayPaymentId: `TXN_${Date.now()}`,
-          razorpayOrderId: rData.razorpayOrderId,
-          razorpaySignature: "mock_signature"
+      // Check for dev mode fallback
+      if (typeof cData.payment_session_id === "string" && cData.payment_session_id.includes("_mock_")) {
+        await submitOrderToBackend("cashfree", {
+          cashfreeOrderId: cData.order_id
         });
         return;
       }
 
-      const options = {
-        key: RAZORPAY_KEY_ID,
-        amount: rData.amount,
-        currency: rData.currency || "INR",
-        name: "House of Tuka",
-        description: "Authentic Bengal Handlooms",
-        image: "/img/Tuka-Logo.svg",
-        order_id: rData.razorpayOrderId,
-        handler: async function (response) {
-          await submitOrderToBackend("online", {
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpayOrderId: response.razorpay_order_id,
-            razorpaySignature: response.razorpay_signature
-          });
-        },
-        prefill: {
-          name: formData.name,
-          email: formData.email,
-          contact: formData.phone,
-        },
-        theme: { color: "#b13896" },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-          }
-        }
+      const cashfree = await load({ mode: "sandbox" }); // Use "production" for live
+
+      const checkoutOptions = {
+        paymentSessionId: cData.payment_session_id
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", function (resp) {
-        setErrorMessage("Payment Failed: " + (resp.error?.description || "Transaction cancelled"));
-        setLoading(false);
+      cashfree.checkout(checkoutOptions).then(async (result) => {
+        if (result.error) {
+          if (result.error.code !== "window_closed" && !result.error.message?.includes("cancelled")) {
+            navigate("/order-failed", { state: { error: result.error.message || "Payment attempt failed." } });
+          } else {
+            setErrorMessage(result.error.message || "Payment was cancelled.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (result.paymentDetails) {
+          // Verify with local backend
+          await submitOrderToBackend("cashfree", {
+            cashfreeOrderId: cData.order_id
+          });
+        } else if (result.redirect) {
+          console.log("Cashfree redirecting...");
+        }
       });
-      rzp.open();
+
     } catch (err) {
-      console.error("[Checkout] Razorpay setup error:", err);
+      console.error("[Checkout] Cashfree setup error:", err);
       setErrorMessage(err.message || "Failed to initialize payment gateway.");
       setLoading(false);
     }
@@ -333,7 +329,7 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-[#FDFAF5] pt-10 pb-24 px-4 sm:px-6 lg:px-8 font-sans text-[#161114]">
       <div className="max-w-[1340px] mx-auto">
-        
+
         {/* Header Bar */}
         <div className="mb-10 border-b border-[#e5d5df]/50 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div className="space-y-3">
@@ -365,10 +361,10 @@ const Checkout = () => {
         )}
 
         <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          
+
           {/* Main Form Inputs */}
           <div className="lg:col-span-7 space-y-10">
-            
+
             {/* Step 1: Customer Identity */}
             <section className="bg-white rounded-[32px] p-6 md:p-8 border border-[#e5d5df]/60 shadow-sm space-y-6">
               <div className="flex items-center justify-between border-b pb-4">
@@ -473,11 +469,10 @@ const Checkout = () => {
                             addressType: addr.addressType || "Home"
                           }));
                         }}
-                        className={`p-4 rounded-2xl text-xs text-left border transition-all cursor-pointer ${
-                          selectedAddressId === addr.id
-                            ? "bg-white border-[#b13896] ring-2 ring-[#b13896]/20 shadow-md"
-                            : "bg-[#F8F4EF]/40 border-[#e5d5df] hover:bg-white"
-                        }`}
+                        className={`p-4 rounded-2xl text-xs text-left border transition-all cursor-pointer ${selectedAddressId === addr.id
+                          ? "bg-white border-[#b13896] ring-2 ring-[#b13896]/20 shadow-md"
+                          : "bg-[#F8F4EF]/40 border-[#e5d5df] hover:bg-white"
+                          }`}
                       >
                         <div className="flex justify-between items-center mb-1">
                           <p className="font-bold text-slate-900">{addr.fullName}</p>
@@ -594,11 +589,10 @@ const Checkout = () => {
                           type="button"
                           key={cat.id}
                           onClick={() => setFormData((prev) => ({ ...prev, addressType: cat.id }))}
-                          className={`flex-1 py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                            isSelected
-                              ? "bg-[#b13896] text-white border-[#b13896] shadow-sm"
-                              : "bg-[#F8F4EF]/40 text-slate-700 border-[#e5d5df] hover:border-[#b13896]"
-                          }`}
+                          className={`flex-1 py-3 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${isSelected
+                            ? "bg-[#b13896] text-white border-[#b13896] shadow-sm"
+                            : "bg-[#F8F4EF]/40 text-slate-700 border-[#e5d5df] hover:border-[#b13896]"
+                            }`}
                         >
                           <cat.icon size={14} />
                           <span>{cat.label}</span>
@@ -621,11 +615,10 @@ const Checkout = () => {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div
                   onClick={() => setPaymentMethod("online")}
-                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col items-start gap-2 ${
-                    paymentMethod === "online"
-                      ? "bg-[#b13896] text-white border-[#b13896] shadow-lg"
-                      : "bg-[#F8F4EF]/50 text-slate-900 border-[#e5d5df] hover:border-[#b13896]"
-                  }`}
+                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col items-start gap-2 ${paymentMethod === "online"
+                    ? "bg-[#b13896] text-white border-[#b13896] shadow-lg"
+                    : "bg-[#F8F4EF]/50 text-slate-900 border-[#e5d5df] hover:border-[#b13896]"
+                    }`}
                 >
                   <CreditCard size={22} />
                   <span className="text-xs font-bold uppercase tracking-wider">Online Payment Gateway</span>
@@ -636,11 +629,10 @@ const Checkout = () => {
 
                 <div
                   onClick={() => setPaymentMethod("cod")}
-                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col items-start gap-2 ${
-                    paymentMethod === "cod"
-                      ? "bg-[#b13896] text-white border-[#b13896] shadow-lg"
-                      : "bg-[#F8F4EF]/50 text-slate-900 border-[#e5d5df] hover:border-[#b13896]"
-                  }`}
+                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col items-start gap-2 ${paymentMethod === "cod"
+                    ? "bg-[#b13896] text-white border-[#b13896] shadow-lg"
+                    : "bg-[#F8F4EF]/50 text-slate-900 border-[#e5d5df] hover:border-[#b13896]"
+                    }`}
                 >
                   <Truck size={22} />
                   <span className="text-xs font-bold uppercase tracking-wider">Cash on Delivery (COD)</span>
@@ -684,7 +676,7 @@ const Checkout = () => {
               {/* Promo Code Box */}
               <div className="pt-4 border-t border-slate-100 space-y-3">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Apply Privilege Promo Code</span>
-                
+
                 {appliedCoupon ? (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-800 font-bold">
                     <div className="flex items-center gap-2">

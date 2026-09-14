@@ -5,12 +5,13 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../components/useAuth";
 import { useStore } from '../hooks/useStore';
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Star, Shield, Truck, RotateCcw, Heart, ShoppingBag, 
+import {
+  Star, Shield, Truck, RotateCcw, Heart, ShoppingBag,
   ArrowLeft, Share2, Gem, Sparkles, ArrowRight, Loader2, ChevronLeft, ChevronRight, Package, Clock, ZoomIn, X, MapPin, CheckCircle2
 } from 'lucide-react';
 import ProductDetailHero from '../components/ProductDetailHero';
 import AttributeBadges from '../components/AttributeBadges';
+import ProductReviews from '../components/ProductReviews';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -25,7 +26,7 @@ const ProductDetail = () => {
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState(null);
-  
+
   // Lightbox Zoom Modal State
   const [isZoomOpen, setIsZoomOpen] = useState(false);
 
@@ -164,8 +165,8 @@ const ProductDetail = () => {
     );
   }
 
-  const discountPercent = activeOriginalPrice > activePrice 
-    ? Math.round(((activeOriginalPrice - activePrice) / activeOriginalPrice) * 100) 
+  const discountPercent = activeOriginalPrice > activePrice
+    ? Math.round(((activeOriginalPrice - activePrice) / activeOriginalPrice) * 100)
     : 0;
 
   const currentCartItemId = selectedSize ? `${product.id}_${selectedSize.size}` : product.id;
@@ -176,7 +177,7 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFBF9] font-sans text-[#161114] relative pb-28">
-      
+
       {/* Customized Dedicated Product Detail Hero Section */}
       <ProductDetailHero
         product={product}
@@ -191,11 +192,11 @@ const ProductDetail = () => {
       {/* Main Product Section */}
       <div className="max-w-[1360px] mx-auto px-4 sm:px-8 py-8 lg:py-12">
         <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
-          
+
           {/* Left Column: STICKY Image Gallery */}
           <div className="w-full lg:w-[54%] lg:sticky lg:top-28 self-start">
             <div className="flex flex-col-reverse sm:flex-row gap-4">
-              
+
               {/* Thumbnail Strip */}
               {imagesList.length > 1 && (
                 <div className="flex sm:flex-col gap-3 overflow-x-auto sm:overflow-y-auto sm:max-h-[600px] no-scrollbar py-1 sm:py-0 shrink-0">
@@ -203,11 +204,10 @@ const ProductDetail = () => {
                     <button
                       key={i}
                       onClick={() => setSelectedImageIndex(i)}
-                      className={`flex-shrink-0 w-16 h-20 sm:w-[72px] sm:h-[94px] rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer ${
-                        selectedImageIndex === i 
-                          ? 'border-[#b13896] shadow-md scale-105 opacity-100' 
+                      className={`flex-shrink-0 w-16 h-20 sm:w-[72px] sm:h-[94px] rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer ${selectedImageIndex === i
+                          ? 'border-[#b13896] shadow-md scale-105 opacity-100'
                           : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
+                        }`}
                     >
                       <img src={imgUrl} alt="" className="w-full h-full object-cover" />
                     </button>
@@ -216,7 +216,7 @@ const ProductDetail = () => {
               )}
 
               {/* Main Image Container */}
-              <motion.div 
+              <motion.div
                 className="flex-1 aspect-[3/4] rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-100 relative group cursor-zoom-in border border-slate-200/70 shadow-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -280,11 +280,10 @@ const ProductDetail = () => {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleAddToWishlist(); }}
                   disabled={wishlistLoading}
-                  className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md cursor-pointer shadow-md z-20 ${
-                    isInWishlist(product.id) 
-                      ? 'bg-[#b13896] text-white' 
+                  className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md cursor-pointer shadow-md z-20 ${isInWishlist(product.id)
+                      ? 'bg-[#b13896] text-white'
                       : 'bg-white/85 text-[#161114] hover:bg-[#b13896] hover:text-white'
-                  }`}
+                    }`}
                 >
                   {wishlistLoading ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -298,7 +297,7 @@ const ProductDetail = () => {
 
           {/* Right Column: Detailed Product Info & Purchase Options */}
           <div className="w-full lg:w-[46%] py-1 space-y-6">
-            
+
             {/* Category, Title & Rating */}
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -367,13 +366,12 @@ const ProductDetail = () => {
                         key={v.size}
                         onClick={() => !isOutOfStock && handleSizeSelect(v)}
                         disabled={isOutOfStock}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all tracking-normal font-sans border relative cursor-pointer ${
-                          isSelected 
+                        className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all tracking-normal font-sans border relative cursor-pointer ${isSelected
                             ? 'bg-[#b13896] text-white border-[#b13896] shadow-sm font-bold'
                             : isOutOfStock
-                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through'
-                            : 'bg-white text-slate-900 border-slate-200 hover:border-[#b13896] hover:text-[#b13896]'
-                        }`}
+                              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through'
+                              : 'bg-white text-slate-900 border-slate-200 hover:border-[#b13896] hover:text-[#b13896]'
+                          }`}
                       >
                         {v.size}
                         {v.price && (
@@ -422,13 +420,12 @@ const ProductDetail = () => {
                 <button
                   onClick={handleAddToCart}
                   disabled={activeStock <= 0 || cartLoading}
-                  className={`h-12 rounded-xl text-xs uppercase tracking-widest font-bold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans ${
-                    activeStock <= 0
-                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    : itemInCart
-                    ? 'bg-[#b13896] text-white shadow-[#b13896]/20'
-                    : 'bg-[#161114] text-white hover:bg-[#b13896]'
-                  }`}
+                  className={`h-12 rounded-xl text-xs uppercase tracking-widest font-bold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans ${activeStock <= 0
+                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                      : itemInCart
+                        ? 'bg-[#b13896] text-white shadow-[#b13896]/20'
+                        : 'bg-[#161114] text-white hover:bg-[#b13896]'
+                    }`}
                 >
                   {cartLoading ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -455,15 +452,15 @@ const ProductDetail = () => {
                 <span>Estimate Delivery Date</span>
               </div>
               <form onSubmit={handlePincodeCheck} className="flex gap-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   maxLength={6}
                   placeholder="Enter 6-digit Pincode"
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-900 outline-none focus:border-[#b13896] font-sans tracking-normal"
                 />
-                <button 
+                <button
                   type="submit"
                   disabled={checkingPincode || pincode.length < 6}
                   className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-[#b13896] text-white text-xs font-bold uppercase transition-all disabled:opacity-40 cursor-pointer font-sans"
@@ -497,8 +494,8 @@ const ProductDetail = () => {
             {/* Accordion Specification Tabs */}
             <div className="space-y-0 pt-2 border-t border-slate-200/60 font-sans">
               {[
-                { 
-                  id: 'details', 
+                {
+                  id: 'details',
                   label: 'Product Details & Specs',
                   content: (
                     <div className="grid grid-cols-2 gap-3 py-2 text-xs">
@@ -517,8 +514,8 @@ const ProductDetail = () => {
                     </div>
                   )
                 },
-                { 
-                  id: 'craft', 
+                {
+                  id: 'craft',
                   label: 'Heritage & Weaving Craftsmanship',
                   content: (
                     <div className="space-y-2 py-2 text-xs text-slate-600 leading-relaxed font-sans">
@@ -528,8 +525,8 @@ const ProductDetail = () => {
                     </div>
                   )
                 },
-                { 
-                  id: 'care', 
+                {
+                  id: 'care',
                   label: 'Care Instructions',
                   content: (
                     <ul className="space-y-2 py-2 text-xs text-slate-600 font-sans">
@@ -551,9 +548,9 @@ const ProductDetail = () => {
                     className="w-full flex items-center justify-between py-3.5 text-left group cursor-pointer font-sans"
                   >
                     <span className="text-xs font-bold text-slate-900 uppercase tracking-wider font-sans">{tab.label}</span>
-                    <ChevronRight 
-                      size={15} 
-                      className={`text-slate-400 transition-transform duration-300 ${activeTab === tab.id ? 'rotate-90 text-[#b13896]' : ''}`} 
+                    <ChevronRight
+                      size={15}
+                      className={`text-slate-400 transition-transform duration-300 ${activeTab === tab.id ? 'rotate-90 text-[#b13896]' : ''}`}
                     />
                   </button>
                   <AnimatePresence>
@@ -572,6 +569,9 @@ const ProductDetail = () => {
                 </div>
               ))}
             </div>
+
+            {/* Product Reviews Section */}
+            <ProductReviews productId={product.id} />
 
           </div>
         </div>
@@ -604,7 +604,7 @@ const ProductDetail = () => {
       </AnimatePresence>
 
       {/* ── FLOATING BOTTOM ACTION BAR (Sticky at Bottom Viewport) ── */}
-      <div 
+      <div
         className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] py-3 px-4 sm:px-6 pr-20 sm:pr-24 lg:pr-28 flex items-center justify-between gap-3 font-sans"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
@@ -657,13 +657,12 @@ const ProductDetail = () => {
           <button
             onClick={handleAddToCart}
             disabled={activeStock <= 0 || cartLoading}
-            className={`px-4 sm:px-6 h-11 rounded-xl text-xs uppercase tracking-wider font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans ${
-              activeStock <= 0
-              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : itemInCart
-              ? 'bg-[#b13896] text-white'
-              : 'bg-[#161114] text-white hover:bg-[#b13896]'
-            }`}
+            className={`px-4 sm:px-6 h-11 rounded-xl text-xs uppercase tracking-wider font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans ${activeStock <= 0
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : itemInCart
+                  ? 'bg-[#b13896] text-white'
+                  : 'bg-[#161114] text-white hover:bg-[#b13896]'
+              }`}
           >
             {cartLoading ? <Loader2 size={15} className="animate-spin" /> : <ShoppingBag size={15} />}
             <span className="hidden sm:inline font-sans">{activeStock <= 0 ? 'Out of Stock' : itemInCart ? 'In Your Cart' : 'Add to Cart'}</span>
