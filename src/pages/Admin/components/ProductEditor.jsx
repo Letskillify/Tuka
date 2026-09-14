@@ -18,6 +18,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
+      product_no: "",
       name: "",
       brand: "Tuka",
       category: "",
@@ -52,6 +53,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
   useEffect(() => {
     if (product) {
       reset({
+        product_no: product.product_no || "",
         name: product.name || "",
         brand: product.brand || "Tuka",
         category: product.category || "",
@@ -76,6 +78,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
       setSelectedAttributes(product.attributes || []);
     } else {
       reset({
+        product_no: "",
         name: "",
         brand: "Tuka",
         category: "",
@@ -168,6 +171,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
       const disc = orig ? Math.round(((orig - sel) / orig) * 100) : 0;
 
       const payload = {
+        product_no: values.product_no?.trim() || "",
         name: values.name.trim(),
         brand: values.brand,
         category: values.category,
@@ -255,7 +259,17 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
           {/* Section 1: Basic Information */}
           <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-800 border-b pb-2">Basic Info</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label className="block">
+                <span className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-widest block">Product No</span>
+                <input
+                  type="text"
+                  placeholder="e.g. TKA-001"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[14px] outline-none focus:border-[#b13896] transition-colors"
+                  {...register("product_no")}
+                />
+              </label>
+
               <label className="block">
                 <span className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-widest block">Product Name *</span>
                 <input
