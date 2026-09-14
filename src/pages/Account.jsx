@@ -3,16 +3,16 @@ import { useAuth } from "../components/useAuth";
 import { db } from "../components/Firebase";
 import { doc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot } from "firebase/firestore";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { 
-  User, 
-  Package, 
-  Heart, 
-  LogOut, 
-  ChevronRight, 
-  Settings, 
-  ShoppingBag, 
-  CreditCard, 
-  MapPin, 
+import {
+  User,
+  Package,
+  Heart,
+  LogOut,
+  ChevronRight,
+  Settings,
+  ShoppingBag,
+  CreditCard,
+  MapPin,
   Bell,
   Award,
   Crown,
@@ -34,7 +34,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Breadcrumb from "../components/Breadcrumb";
 
 const Account = () => {
-  const { user, logout, deleteAccount, syncGuestOrders } = useAuth();
+  const { user, loading: authLoading, logout, deleteAccount, syncGuestOrders } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
@@ -81,13 +81,14 @@ const Account = () => {
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       navigate("/login");
       return;
     }
 
-    let unsubUser = () => {};
-    let unsubOrders = () => {};
+    let unsubUser = () => { };
+    let unsubOrders = () => { };
 
     const setupListeners = async () => {
       try {
@@ -112,7 +113,7 @@ const Account = () => {
         const qUidOrders = query(collection(db, "orders"), where("userId", "==", user.uid));
         const qEmailOrders = query(collection(db, "orders"), where("customerEmail", "==", cleanEmail));
 
-        let unsubEmail = () => {};
+        let unsubEmail = () => { };
 
         let uidList = [];
         let emailList = [];
@@ -250,7 +251,7 @@ const Account = () => {
   };
 
   // Loading State - Dark Preloader Background
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-[#161114] flex flex-col items-center justify-center space-y-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b13896]" />
@@ -271,7 +272,7 @@ const Account = () => {
       />
 
       <div className="max-w-[1240px] mx-auto px-6 pt-10">
-        
+
         {/* Navigation Tabs Bar */}
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-4 mb-8 border-b border-[#e5d5df]/40">
           {[
@@ -285,11 +286,10 @@ const Account = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-5 py-3 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'bg-[#b13896] text-white shadow-lg shadow-[#b13896]/20 scale-105'
-                    : 'bg-white text-[#4a3f44] border border-[#e5d5df]/60 hover:border-[#b13896] hover:text-[#b13896]'
-                }`}
+                className={`px-5 py-3 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${isActive
+                  ? 'bg-[#b13896] text-white shadow-lg shadow-[#b13896]/20 scale-105'
+                  : 'bg-white text-[#4a3f44] border border-[#e5d5df]/60 hover:border-[#b13896] hover:text-[#b13896]'
+                  }`}
               >
                 <tab.icon size={15} />
                 {tab.label}
@@ -299,16 +299,16 @@ const Account = () => {
         </div>
 
         <div className="grid lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Left Sidebar - Member Badge Card & Quick Links */}
           <div className="lg:col-span-4 space-y-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="bg-[#161114] text-white rounded-[32px] p-8 border border-[#b13896]/30 shadow-xl relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-40 h-40 bg-[#b13896]/15 rounded-full blur-3xl" />
-              
+
               <div className="flex items-center gap-5 mb-6">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden">
@@ -376,7 +376,7 @@ const Account = () => {
 
             {/* Logout & Deactivate */}
             <div className="bg-white rounded-[24px] p-4 border border-[#e5d5df]/40 space-y-2">
-              <button 
+              <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-all text-left text-slate-700 hover:text-[#b13896]"
               >
@@ -388,7 +388,7 @@ const Account = () => {
               </button>
 
               {!showDeleteConfirm ? (
-                <button 
+                <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full text-center py-2 text-[10px] font-bold text-red-500/70 hover:text-red-600 uppercase tracking-widest transition-colors"
                 >
@@ -398,13 +398,13 @@ const Account = () => {
                 <div className="p-3 bg-red-50 rounded-xl space-y-3 text-center">
                   <p className="text-xs text-red-700 font-bold">Are you sure you want to delete your account?</p>
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={() => setShowDeleteConfirm(false)}
                       className="flex-1 py-1.5 bg-white border border-red-200 rounded-lg text-xs font-bold text-slate-700"
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       onClick={handleDeleteAccount}
                       className="flex-1 py-1.5 bg-red-600 rounded-lg text-xs font-bold text-white shadow-sm"
                     >
@@ -422,7 +422,7 @@ const Account = () => {
             {/* TAB 1: OVERVIEW & PROFILE */}
             {activeTab === 'overview' && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                
+
                 {/* Profile Card */}
                 <div className="bg-white rounded-[32px] p-8 border border-[#e5d5df]/40 shadow-sm space-y-6">
                   <div className="flex items-center justify-between border-b pb-4">
@@ -430,7 +430,7 @@ const Account = () => {
                       <h3 className="text-xl font-serif text-[#161114]">Personal Information</h3>
                       <p className="text-xs text-slate-400">Synced in real-time to your Tuka account</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setShowProfileModal(true)}
                       className="px-4 py-2 rounded-full border border-[#b13896] text-[#b13896] text-xs font-bold uppercase tracking-wider hover:bg-[#b13896] hover:text-white transition-all cursor-pointer"
                     >
@@ -462,7 +462,7 @@ const Account = () => {
                 <div className="bg-white rounded-[32px] p-8 border border-[#e5d5df]/40 shadow-sm space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-serif text-[#161114]">Recent Orders</h3>
-                    <button 
+                    <button
                       onClick={() => setActiveTab('orders')}
                       className="text-xs font-bold text-[#b13896] hover:underline uppercase tracking-wider"
                     >
@@ -545,17 +545,15 @@ const Account = () => {
                                   <span className="text-[10px] font-bold text-slate-700 block">Order Placed</span>
                                 </div>
                                 <div className="space-y-1">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors ${
-                                    isShipped ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'
-                                  }`}>
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors ${isShipped ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'
+                                    }`}>
                                     <Truck size={14} />
                                   </div>
                                   <span className="text-[10px] font-bold text-slate-700 block">Handcrafted & Shipped</span>
                                 </div>
                                 <div className="space-y-1">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors ${
-                                    isDelivered ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'
-                                  }`}>
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors ${isDelivered ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'
+                                    }`}>
                                     <CheckCircle size={14} />
                                   </div>
                                   <span className="text-[10px] font-bold text-slate-700 block">Delivered</span>
@@ -868,11 +866,10 @@ const Account = () => {
                         type="button"
                         key={type}
                         onClick={() => setAddressForm({ ...addressForm, addressType: type })}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
-                          addressForm.addressType === type
-                            ? "bg-[#b13896] text-white border-[#b13896]"
-                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                        }`}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${addressForm.addressType === type
+                          ? "bg-[#b13896] text-white border-[#b13896]"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                          }`}
                       >
                         {type}
                       </button>

@@ -370,7 +370,7 @@ const LuxuryHeader = () => {
               >
                 Search our collections
               </p>
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (searchVal.trim()) {
@@ -456,7 +456,7 @@ const LuxuryHeader = () => {
               </div>
 
               {/* Quick Category Tag Pills */}
-              
+
 
               {/* Nav items */}
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
@@ -466,17 +466,28 @@ const LuxuryHeader = () => {
                   return (
                     <div key={link.name} style={{ borderBottom: `1px solid rgba(177,56,150,0.12)` }}>
                       <div className="flex justify-between items-center py-4">
-                        <Link
-                          to={link.href}
-                          onClick={() => setMobileOpen(false)}
-                          className={`text-lg font-light flex items-center gap-2 transition-colors ${
-                            isActive ? 'text-[#f4cfeb] font-semibold' : 'text-white/90 hover:text-[#b13896]'
-                          }`}
-                          style={{ fontFamily: NAV_SANS }}
-                        >
-                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#b13896]" />}
-                          {link.name}
-                        </Link>
+                        {link.megaMenu ? (
+                          <button
+                            onClick={() => setMobileExpanded(mobileExpanded === link.name ? null : link.name)}
+                            className={`flex-1 text-left text-lg font-light flex items-center gap-2 transition-colors ${isActive ? 'text-[#f4cfeb] font-semibold' : 'text-white/90 hover:text-[#b13896]'
+                              }`}
+                            style={{ fontFamily: NAV_SANS }}
+                          >
+                            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#b13896]" />}
+                            {link.name}
+                          </button>
+                        ) : (
+                          <Link
+                            to={link.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={`flex-1 text-lg font-light flex items-center gap-2 transition-colors ${isActive ? 'text-[#f4cfeb] font-semibold' : 'text-white/90 hover:text-[#b13896]'
+                              }`}
+                            style={{ fontFamily: NAV_SANS }}
+                          >
+                            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#b13896]" />}
+                            {link.name}
+                          </Link>
+                        )}
                         {link.megaMenu && (
                           <button
                             onClick={() => setMobileExpanded(mobileExpanded === link.name ? null : link.name)}

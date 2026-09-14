@@ -305,92 +305,95 @@ export const StoreProvider = ({ children }) => {
     }}>
       {children}
 
-      {/* Mini Popup */}
-      <div 
-        className={`fixed z-[9999] bg-white rounded-2xl border border-slate-100 shadow-[0_20px_50px_rgba(22,17,20,0.15)] p-4 flex flex-col gap-3 transition-all duration-300 md:w-[340px] md:bottom-6 md:right-6 bottom-4 left-4 right-4 ${
-          popupVisible 
-            ? 'opacity-100 translate-y-0 scale-100' 
-            : 'opacity-0 translate-y-8 scale-95 pointer-events-none'
-        }`}
-        style={{
-          fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif"
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
-          <span className="text-[11px] font-bold text-[#b13896] tracking-wider uppercase">Added to Cart</span>
-          <button 
-            type="button"
-            onClick={() => setPopupVisible(false)} 
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-
-        {/* Body: Product Info */}
-        {popupItem && (
-          <div className="flex gap-3.5 items-center">
-            <img 
-              src={popupItem.image} 
-              alt={popupItem.name} 
-              className="w-12 h-14 rounded-lg object-cover bg-slate-50 border border-slate-100 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <h4 className="text-[13px] font-bold text-slate-800 truncate">{popupItem.name}</h4>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">₹{Number(popupItem.price).toLocaleString()}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Footer: Quantity Controls */}
-        {popupItem && (
-          <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <span className="text-[11px] font-bold text-slate-650 uppercase tracking-wider">Quantity</span>
-            <div className="flex items-center gap-2">
-              <button 
-                type="button"
-                onClick={() => updateCartQuantity(popupItem.id, popupQuantity - 1)}
-                className="w-7 h-7 bg-white hover:bg-[#b13896]/10 text-slate-650 hover:text-[#b13896] font-bold rounded-lg border border-slate-200 transition-colors flex items-center justify-center text-sm"
-              >
-                &minus;
-              </button>
-              <span className="w-6 text-center text-xs font-bold text-slate-800">{popupQuantity}</span>
-              <button 
-                type="button"
-                onClick={() => updateCartQuantity(popupItem.id, popupQuantity + 1)}
-                disabled={popupQuantity >= Math.min(10, popupItem.stock || 10)}
-                className="w-7 h-7 bg-white hover:bg-[#b13896]/10 text-slate-650 hover:text-[#b13896] disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-650 font-bold rounded-lg border border-slate-200 transition-colors flex items-center justify-center text-sm"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Buttons */}
-        <div className="flex gap-2.5 mt-1">
-          <button 
-            type="button"
-            onClick={() => setPopupVisible(false)}
-            className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold uppercase tracking-wider transition-all text-center border border-slate-200/50"
-          >
-            Continue
-          </button>
-          <button 
-            type="button"
-            onClick={() => {
-              setPopupVisible(false);
-              navigate('/cart');
+      {/* Centered Add to Cart Modal */}
+      {popupVisible && (
+        <div className="fixed inset-0 z-[9999] bg-[#161114]/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-300">
+          <div 
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 relative flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif"
             }}
-            className="flex-1 py-2.5 rounded-xl bg-[#b13896] hover:bg-[#962e7f] text-white text-[11px] font-bold uppercase tracking-wider transition-all text-center shadow-md shadow-[#b13896]/20"
           >
-            Go to Cart
-          </button>
+            {/* Close Button */}
+            <button 
+              type="button"
+              onClick={() => setPopupVisible(false)} 
+              className="absolute top-4 right-4 p-2 bg-slate-100/50 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="flex flex-col items-center text-center mt-2">
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-serif text-slate-900">Added to Cart</h3>
+              <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-bold">Successfully placed in your bag</p>
+            </div>
+
+            {/* Product Info */}
+            {popupItem && (
+              <div className="flex gap-4 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <img 
+                  src={popupItem.image} 
+                  alt={popupItem.name} 
+                  className="w-16 h-20 rounded-xl object-cover bg-white shadow-sm flex-shrink-0 border border-slate-200"
+                />
+                <div className="flex-1 min-w-0 pr-2">
+                  <h4 className="text-sm font-bold text-slate-900 line-clamp-2">{popupItem.name}</h4>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-sm font-bold text-[#b13896]">₹{Number(popupItem.price).toLocaleString()}</p>
+                    <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                      <button 
+                        type="button"
+                        onClick={() => updateCartQuantity(popupItem.id, popupQuantity - 1)}
+                        className="w-6 h-6 text-slate-500 hover:text-[#b13896] hover:bg-slate-50 rounded flex items-center justify-center font-medium transition-colors"
+                      >
+                        &minus;
+                      </button>
+                      <span className="w-4 text-center text-xs font-bold text-slate-800">{popupQuantity}</span>
+                      <button 
+                        type="button"
+                        onClick={() => updateCartQuantity(popupItem.id, popupQuantity + 1)}
+                        disabled={popupQuantity >= Math.min(10, popupItem.stock || 10)}
+                        className="w-6 h-6 text-slate-500 hover:text-[#b13896] hover:bg-slate-50 disabled:opacity-30 rounded flex items-center justify-center font-medium transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-2">
+              <button 
+                type="button"
+                onClick={() => setPopupVisible(false)}
+                className="flex-1 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-[11px] border-2 border-slate-200 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Continue Shopping
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  setPopupVisible(false);
+                  navigate('/cart');
+                }}
+                className="flex-1 py-3.5 rounded-xl bg-[#161114] hover:bg-[#b13896] text-white text-[11px] font-bold uppercase tracking-wider transition-all text-center shadow-lg"
+              >
+                Go to Checkout
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </StoreContext.Provider>
   );
 };
