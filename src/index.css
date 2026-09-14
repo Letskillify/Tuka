@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Montserrat:wght@300;400;500;600&family=Italianno&display=swap');
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-serif: "Cormorant Garamond", serif;
+    --font-sans: "Montserrat", sans-serif;
+    --font-script: "Italianno", cursive;
+
+    /* Luxury Palette */
+    --color-primary-burgundy: #b13896;
+    --color-royal-burgundy: #5E0B24;
+    --color-dusty-wine: #A64D68;
+    --color-warm-ivory: #F8F4EF;
+    --color-soft-beige: #EFE6DC;
+    --color-pearl-beige: #f7ebf2;
+    --color-champagne-beige: #e5d5df;
+    --color-rich-charcoal: #161114;
+    --color-warm-taupe: #4a3f44;
+    --color-antique-gold: #C8A46A;
+    --color-champagne-gold: #D4B483;
+    --color-soft-white: #FFFDF9;
+
+    --color-accent: var(--color-antique-gold);
+    --color-bg-dark: var(--color-rich-charcoal);
+    --color-bg-paper: var(--color-warm-ivory);
+    --color-text-white: var(--color-soft-white);
+    --color-text-dim: var(--color-warm-taupe);
+  }
+
+  html, body {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+
+  body {
+    background-color: var(--color-warm-ivory);
+    color: var(--color-rich-charcoal);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-serif {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Register luxury colors in Tailwind v4 */
+@theme {
+  --color-primary-burgundy: #b13896;
+  --color-royal-burgundy: #5E0B24;
+  --color-dusty-wine: #A64D68;
+  --color-warm-ivory: #F8F4EF;
+  --color-soft-beige: #EFE6DC;
+  --color-pearl-beige: #f7ebf2;
+  --color-champagne-beige: #e5d5df;
+  --color-rich-charcoal: #161114;
+  --color-warm-taupe: #4a3f44;
+  --color-antique-gold: #C8A46A;
+  --color-champagne-gold: #D4B483;
+  --color-soft-white: #FFFDF9;
+  --color-accent: #C8A46A;
+}
+
+/* Custom Swiper Pagination Styling */
+.swiper-pagination-bullet {
+  width: 40px !important;
+  height: 1px !important;
+  border-radius: 0 !important;
+  background: #1A1A1A !important;
+  opacity: 0.1 !important;
+  transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.swiper-pagination-bullet-active {
+  background: #111111 !important;
+  opacity: 1 !important;
+  width: 80px !important;
+}
+
+/* Specific Page Accents */
+.custom-pagination-why .swiper-pagination-bullet,
+.custom-pagination-featured .swiper-pagination-bullet,
+.custom-pagination-bestsellers .swiper-pagination-bullet,
+.custom-pagination-testimonials .swiper-pagination-bullet {
+  margin: 0 4px !important;
+}
+
+/* Smooth Swiper Transitions */
+.swiper-wrapper {
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+/* Luxury Card Hover */
+.luxury-card {
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.luxury-card:hover {
+  transform: translateY(-8px);
+}
+
+/* Utiltiy classes */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.editorial-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .editorial-grid {
+    display: flex;
+    flex-direction: column;
+  }
+}

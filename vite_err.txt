@@ -1,0 +1,60 @@
+﻿
+  [32m[1mVITE[22m v7.3.0[39m  [2mready in [0m[1m1178[22m[2m[0m ms[22m
+
+  [32mΓ₧£[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+[2m  [32mΓ₧£[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  Γ₧£[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+node.exe : [2m8:35:53 
+pm[22m [31m[1m[vite]
+[22m[39m 
+[31mInternal server 
+error: Missing field 
+`moduleType`[39m
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Users\Lenovo\AppDat
+a\Roaming ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ([2m8:35:53 p   
+ m...oduleType`[3    
+9m:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+  Plugin: [35mbuiltin:
+vite-react-refresh-wrap
+per[39m
+  File: [36m[object 
+Object][39m
+      at wrappedPlugin.
+<computed> (file:///C:/
+Users/Lenovo/OneDrive/D
+esktop/Velauraz/Jeweler
+y/node_modules/rolldown
+/dist/shared/normalize-
+string-or-regex-0P4NpnR
+a.mjs:19:36)
+      at EnvironmentPlu
+ginContainer.transform 
+(file:///C:/Users/Lenov
+o/node_modules/vite/dis
+t/node/chunks/config.js
+:28796:51)
+      at process.proces
+sTicksAndRejections (no
+de:internal/process/tas
+k_queues:105:5)
+      at async 
+loadAndTransform (file:
+///C:/Users/Lenovo/node
+_modules/vite/dist/node
+/chunks/config.js:22669
+:26)

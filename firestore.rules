@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Products: Publicly readable; client writes disallowed (server-side only)
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // OTPs: Direct client access strictly forbidden (server-side API only)
+    match /otps/{otpId} {
+      allow read, write: if false;
+    }
+
+    // Orders: Direct client creation and modification disallowed (handled via /api/orders)
+    // Authenticated users can read their own orders.
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // Users collection & subcollections (cart, wishlist, savedAddresses)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /cart/{cartItemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /wishlist/{wishItemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /orders/{userOrderId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
+      }
+    }
+  }
+}
