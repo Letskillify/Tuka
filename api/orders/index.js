@@ -1,17 +1,17 @@
 import crypto from "node:crypto";
-import { 
-  clientDb, 
-  adminDb, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  runTransaction, 
-  serverTimestamp 
+import {
+  clientDb,
+  adminDb,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  runTransaction,
+  serverTimestamp
 } from "../_lib/firebaseServer.js";
 import { sendOrderEmails } from "../_lib/emailService.js";
 
@@ -172,6 +172,39 @@ export default async function handler(req, res) {
       } else {
         paymentStatus = "Paid";
         paymentId = razorpayPaymentId || `TXN_${Date.now()}`;
+      }
+    } else if (paymentMethod === "cashfree") {
+      const appId = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
+      const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
+      const { cashfreeOrderId } = paymentDetails || {};
+
+      if (appId && secretKey && !appId.startsWith("YOUR_") && cashfreeOrderId) {
+        // Authenticate Cashfree SDK
+        const { Cashfree } = await import("cashfree-pg-sdk-nodejs");
+        Cashfree.XClientId = appId;
+        Cashfree.XClientSecret = secretKey;
+        Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; // Change to PRODUCTION for live
+
+        try {
+          const response = await Cashfree.PGOrderFetchPayments("2023-08-01", cashfreeOrderId);
+          if (response.data && response.data.length > 0) {
+            const successfulPayment = response.data.find(p => p.payment_status === "SUCCESS");
+            if (successfulPayment) {
+              paymentStatus = "Paid";
+              paymentId = successfulPayment.cf_payment_id || cashfreeOrderId;
+            } else {
+              return res.status(422).json({ error: "Payment not successful. Please try again." });
+            }
+          } else {
+            return res.status(422).json({ error: "No payment records found." });
+          }
+        } catch (e) {
+          return res.status(500).json({ error: "Cashfree verification failed: " + e.message });
+        }
+      } else {
+        // Dev fallback
+        paymentStatus = "Paid";
+        paymentId = cashfreeOrderId || `CF_MOCK_${Date.now()}`;
       }
     } else {
       paymentStatus = "Pending";
