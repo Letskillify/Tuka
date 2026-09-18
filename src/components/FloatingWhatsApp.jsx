@@ -8,8 +8,7 @@ const FloatingWhatsApp = () => {
   const defaultMessage = 'Hello Tuka, I have an inquiry regarding handloom sarees and designer blouses.';
 
   const handleWhatsAppClick = () => {
-    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(defaultMessage)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open("https://wa.me/message/VFPFWD6OPAYVC1", '_blank', 'noopener,noreferrer');
   };
 
   return (

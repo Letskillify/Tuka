@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Search, Menu, X, ShoppingBag, Heart, User,
   ChevronDown, ChevronLeft, ChevronRight, ArrowRight,
+  Sparkles, Clock, Trash2,
 } from 'lucide-react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from './Firebase';
@@ -16,6 +17,48 @@ const DARK = '#161114';
 const LIGHT_BG = '#FBF9FA';
 const NAV_SANS = "'Plus Jakarta Sans', 'Inter', sans-serif";
 const NAV_SERIF = "'Playfair Display', Georgia, serif";
+const SAMPLE_SEARCH_PRODUCTS = [
+  {
+    id: 'dhaniakhali-cotton',
+    name: 'Dhaniakhali Combed Cotton Saree',
+    category: 'Handloom Saree',
+    subCategory: 'Dhaniakhali Saree',
+    price: 3490,
+    original_price: 4500,
+    image: 'img/d.jpeg',
+    tagline: 'Kanchha Border • 100s Count Cotton',
+  },
+  {
+    id: 'begumpuri-macha',
+    name: 'Begumpuri Macha Chokh Saree',
+    category: 'Handloom Saree',
+    subCategory: 'Begumpuri Saree',
+    price: 4200,
+    original_price: 5200,
+    image: 'img/b.jpeg',
+    tagline: 'Featherlight • Serrated Fish-Scale',
+  },
+  {
+    id: 'shantipuri-silk',
+    name: 'Shantipuri Micro-Fine Silk Saree',
+    category: 'Handloom Saree',
+    subCategory: 'Shantipuri Saree',
+    price: 6800,
+    original_price: 8500,
+    image: 'img/s.jpeg',
+    tagline: '120s Combed Yarn • Bhomra Motif',
+  },
+  {
+    id: 'hindshree-appliqué',
+    name: 'Hindshree Signature Appliqué Saree',
+    category: 'Boutique Collection',
+    subCategory: 'Hindshree Saree',
+    price: 8900,
+    original_price: 11500,
+    image: 'img/h.jpeg',
+    tagline: 'Freehand Painting • Zari Tissue',
+  },
+];
 
 const LuxuryHeader = () => {
   const location = useLocation();
@@ -81,6 +124,91 @@ const LuxuryHeader = () => {
     document.body.style.overflow = mobileOpen || searchOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen, searchOpen]);
+
+  /* ─── Keyboard Shortcut ESC for Search ────────────────── */
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchOpen]);
+
+  /* ─── Recent Searches Persistence ─────────────────────── */
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tuka_recent_searches');
+      return saved ? JSON.parse(saved) : ['Dhaniakhali Saree', 'Begumpuri', 'Shantipuri', 'Designer Blouse'];
+    } catch (e) {
+      return ['Dhaniakhali Saree', 'Begumpuri', 'Shantipuri', 'Designer Blouse'];
+    }
+  });
+
+  const [searchCategory, setSearchCategory] = useState('All');
+
+  const addRecentSearch = (term) => {
+    if (!term || !term.trim()) return;
+    const cleaned = term.trim();
+    const updated = [cleaned, ...recentSearches.filter((item) => item.toLowerCase() !== cleaned.toLowerCase())].slice(0, 6);
+    setRecentSearches(updated);
+    try {
+      localStorage.setItem('tuka_recent_searches', JSON.stringify(updated));
+    } catch (e) {}
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('tuka_recent_searches');
+    } catch (e) {}
+  };
+
+  /* ─── Merged Products & Search Results ────────────────── */
+  const searchProductsPool = useMemo(() => {
+    const list = [...dbProducts];
+    SAMPLE_SEARCH_PRODUCTS.forEach((sample) => {
+      if (!list.some((p) => p.id === sample.id || (p.name && p.name.toLowerCase() === sample.name.toLowerCase()))) {
+        list.push(sample);
+      }
+    });
+    return list;
+  }, [dbProducts]);
+
+  const filteredSearchResults = useMemo(() => {
+    const q = searchVal.trim().toLowerCase();
+    
+    return searchProductsPool.filter((p) => {
+      const name = (p.name || p.title || '').toLowerCase();
+      const cat = (p.category || '').toLowerCase();
+      const subCat = (p.subCategory || '').toLowerCase();
+      const desc = (p.description || '').toLowerCase();
+      const tagline = (p.tagline || '').toLowerCase();
+
+      const matchesQuery = !q || name.includes(q) || cat.includes(q) || subCat.includes(q) || desc.includes(q) || tagline.includes(q);
+      const matchesCategory = searchCategory === 'All' || cat.includes(searchCategory.toLowerCase()) || subCat.includes(searchCategory.toLowerCase());
+
+      return matchesQuery && matchesCategory;
+    });
+  }, [searchProductsPool, searchVal, searchCategory]);
+
+  const handlePerformSearch = (term) => {
+    const queryToUse = term !== undefined ? term : searchVal;
+    if (!queryToUse.trim()) return;
+    addRecentSearch(queryToUse);
+    setSearchOpen(false);
+    navigate(`/shop?q=${encodeURIComponent(queryToUse.trim())}#products`);
+  };
+
+  const handleSelectProduct = (product) => {
+    setSearchOpen(false);
+    if (product.id && !String(product.id).includes('-')) {
+      navigate(`/product/${product.id}`);
+    } else {
+      navigate(`/shop?q=${encodeURIComponent(product.name || product.title)}#products`);
+    }
+  };
 
   /* ─ Dynamic Nav Data derived from Uploaded Products & Categories ───── */
   const navLinks = useMemo(() => {
@@ -340,79 +468,313 @@ const LuxuryHeader = () => {
         </div>
       </header>
 
-      {/* ── Fullscreen Search Overlay ─────────────────── */}
+      {/* ── Executive Fullscreen Live Search Overlay ─────────────────── */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
-            style={{ background: 'rgba(26,16,64,0.96)', backdropFilter: 'blur(20px)' }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[200] overflow-y-auto flex flex-col"
+            style={{
+              background: 'rgba(18, 12, 16, 0.96)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+            }}
           >
-            <button
-              onClick={() => setSearchOpen(false)}
-              className="absolute top-7 right-8 p-2 text-white/50 hover:text-white transition-colors"
-            >
-              <X size={26} strokeWidth={1.2} />
-            </button>
+            {/* Top Bar inside Search Modal */}
+            <div className="max-w-[1440px] w-full mx-auto px-5 lg:px-12 py-6 flex items-center justify-between border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <img src="/img/Tuka-Logo.svg" alt="Tuka" className="h-8" style={{ filter: 'brightness(0) invert(1)' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#b13896]" />
+                <span className="text-[11px] tracking-[0.25em] font-bold uppercase text-white/70" style={{ fontFamily: NAV_SANS }}>
+                  Luxury Search Portal
+                </span>
+              </div>
 
-            <motion.div
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="w-full max-w-2xl px-6"
-            >
-              <p
-                className="text-center text-[12px] tracking-[0.4em] uppercase mb-8 font-medium"
-                style={{ color: MAGENTA }}
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:inline-block text-[10px] tracking-widest text-white/40 uppercase font-semibold border border-white/10 px-2.5 py-1 rounded">
+                  ESC to exit
+                </span>
+                <button
+                  onClick={() => setSearchOpen(false)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center border border-white/20 text-white/80 hover:text-white hover:border-[#b13896] hover:bg-[#b13896]/20 transition-all duration-300 cursor-pointer"
+                  aria-label="Close search"
+                >
+                  <X size={20} strokeWidth={1.5} />
+                </button>
+              </div>
+            </div>
+
+            {/* Main Search Panel Body */}
+            <div className="max-w-4xl w-full mx-auto px-5 lg:px-8 py-8 flex-1 flex flex-col">
+              
+              {/* Search Form Input Box */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="relative mb-6"
               >
-                Search our collections
-              </p>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (searchVal.trim()) {
-                    navigate(`/shop?q=${encodeURIComponent(searchVal.trim())}#products`);
-                    setSearchOpen(false);
-                  }
-                }}
-                className="relative flex items-center border-b border-white/20 focus-within:border-[#b13896] transition-colors duration-300 pb-2"
-              >
-                <Search size={18} strokeWidth={1.2} className="absolute left-0 text-white/30" />
-                <input
-                  autoFocus
-                  value={searchVal}
-                  onChange={(e) => setSearchVal(e.target.value)}
-                  placeholder="Search sarees, khadi, designer blouses…"
-                  className="w-full bg-transparent pl-8 pr-4 py-4 text-white text-lg font-light placeholder-white/25 outline-none"
-                  style={{ fontFamily: NAV_SANS }}
-                />
-                {searchVal && (
-                  <button type="button" onClick={() => setSearchVal('')} className="absolute right-0 text-white/30 hover:text-white transition-colors">
-                    <X size={16} />
-                  </button>
-                )}
-              </form>
-              <div className="mt-10 flex flex-wrap gap-3 justify-center">
-                {['Silk Sarees', 'Cotton Saree', 'Khadi', 'Linen Jamdani', 'Designer Blouse'].map((tag) => (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handlePerformSearch();
+                  }}
+                  className="relative flex items-center rounded-2xl bg-white/5 border border-white/15 focus-within:border-[#b13896] focus-within:shadow-[0_0_30px_rgba(177,56,150,0.25)] transition-all duration-300 overflow-hidden"
+                >
+                  <Search size={22} strokeWidth={1.5} className="absolute left-5 text-[#b13896]" />
+                  <input
+                    autoFocus
+                    value={searchVal}
+                    onChange={(e) => setSearchVal(e.target.value)}
+                    placeholder="Search sarees, Dhaniakhali, Begumpuri, silk, blouses…"
+                    className="w-full bg-transparent pl-14 pr-24 py-4 text-white text-lg sm:text-xl font-light placeholder-white/35 outline-none"
+                    style={{ fontFamily: NAV_SANS }}
+                  />
+                  {searchVal ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchVal('')}
+                      className="absolute right-14 p-2 text-white/40 hover:text-white transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  ) : null}
                   <button
-                    key={tag}
-                    type="button"
-                    onClick={() => {
-                      setSearchVal(tag);
-                      navigate(`/shop?q=${encodeURIComponent(tag)}#products`);
-                      setSearchOpen(false);
-                    }}
-                    className="px-5 py-2 border border-white/15 text-white/60 hover:border-[#b13896] hover:text-[#b13896] hover:bg-[#b13896]/10 transition-all duration-300 text-[11px] font-bold tracking-widest uppercase rounded-full cursor-pointer"
+                    type="submit"
+                    className="absolute right-3 px-4 py-2 bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
                     style={{ fontFamily: NAV_SANS }}
                   >
-                    {tag}
+                    Search
                   </button>
-                ))}
+                </form>
+
+                {/* Counter Badge */}
+                {searchVal.trim() && (
+                  <div className="flex items-center justify-between mt-2.5 px-2">
+                    <span className="text-xs text-white/60 font-medium">
+                      Found <strong className="text-[#f4cfeb]">{filteredSearchResults.length}</strong> matching products
+                    </span>
+                    <button
+                      onClick={() => setSearchVal('')}
+                      className="text-xs text-[#b13896] hover:underline"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 scrollbar-hide">
+                {['All', 'Handloom Saree', 'Designer Blouse', 'Boutique Collection'].map((cat) => {
+                  const isActive = searchCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSearchCategory(cat)}
+                      className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase transition-all border ${
+                        isActive
+                          ? 'bg-[#b13896] text-white border-[#b13896] shadow-md'
+                          : 'bg-white/5 text-white/70 border-white/10 hover:border-white/30 hover:text-white'
+                      }`}
+                      style={{ fontFamily: NAV_SANS }}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
               </div>
-            </motion.div>
+
+              {/* Dynamic Content View */}
+              {!searchVal.trim() ? (
+                /* Empty Input: Show Recent Searches, Trending Tags & Featured Grid */
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="space-y-8"
+                >
+                  {/* Recent Searches */}
+                  {recentSearches.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs tracking-[0.25em] uppercase font-bold text-white/50 flex items-center gap-1.5" style={{ fontFamily: NAV_SANS }}>
+                          <Clock size={13} className="text-[#b13896]" /> Recent Searches
+                        </span>
+                        <button
+                          onClick={clearRecentSearches}
+                          className="text-[11px] text-white/40 hover:text-[#b13896] transition-colors flex items-center gap-1"
+                        >
+                          <Trash2 size={12} /> Clear history
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {recentSearches.map((term, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSearchVal(term);
+                              handlePerformSearch(term);
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-[#b13896]/20 border border-white/10 hover:border-[#b13896]/40 text-white/80 hover:text-white text-xs font-medium transition-all flex items-center gap-1.5 group cursor-pointer"
+                          >
+                            <span>{term}</span>
+                            <ArrowRight size={12} className="text-white/30 group-hover:text-[#b13896] transition-colors" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Popular Trending Keywords */}
+                  <div>
+                    <span className="text-xs tracking-[0.25em] uppercase font-bold text-white/50 block mb-3" style={{ fontFamily: NAV_SANS }}>
+                      Popular Collections & Weaves
+                    </span>
+                    <div className="flex flex-wrap gap-2.5">
+                      {['Dhaniakhali Saree', 'Begumpuri Saree', 'Shantipuri Silk', 'Hindshree Saree', 'Designer Blouse', 'Cotton Khadi'].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            setSearchVal(tag);
+                            handlePerformSearch(tag);
+                          }}
+                          className="px-4 py-2 border border-white/15 text-white/70 hover:border-[#b13896] hover:text-[#b13896] hover:bg-[#b13896]/10 transition-all duration-300 text-xs font-bold tracking-wider uppercase rounded-full cursor-pointer flex items-center gap-1.5"
+                          style={{ fontFamily: NAV_SANS }}
+                        >
+                          <Sparkles size={12} className="text-[#b13896]" />
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Featured Instant Products */}
+                  <div className="pt-2">
+                    <span className="text-xs tracking-[0.25em] uppercase font-bold text-white/50 block mb-4" style={{ fontFamily: NAV_SANS }}>
+                      Featured Craft Showcase
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {searchProductsPool.slice(0, 4).map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectProduct(item)}
+                          className="group rounded-xl p-3 bg-white/5 border border-white/10 hover:border-[#b13896]/50 hover:bg-white/10 transition-all duration-300 cursor-pointer flex flex-col"
+                        >
+                          <div className="relative rounded-lg overflow-hidden h-36 mb-2.5 bg-black/40">
+                            <img
+                              src={item.image || item.images?.[0] || 'img/d.jpeg'}
+                              alt={item.name || item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold uppercase text-white/90">
+                              {item.subCategory || item.category || 'Handloom'}
+                            </div>
+                          </div>
+                          <h4 className="text-xs font-semibold text-white group-hover:text-[#f4cfeb] transition-colors truncate mb-1" style={{ fontFamily: NAV_SANS }}>
+                            {item.name || item.title}
+                          </h4>
+                          <div className="flex items-center justify-between mt-auto pt-1">
+                            <span className="text-xs font-bold text-[#b13896]">
+                              ₹{Number(item.price || 0).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-white/50 group-hover:text-white transition-colors flex items-center gap-0.5">
+                              View <ArrowRight size={10} />
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </motion.div>
+              ) : (
+                /* Active Search Query: Show Live Match Results Grid */
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex-1"
+                >
+                  {filteredSearchResults.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredSearchResults.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectProduct(item)}
+                          className="group rounded-2xl p-3.5 bg-white/5 border border-white/10 hover:border-[#b13896]/60 hover:bg-white/10 transition-all duration-300 cursor-pointer flex items-center gap-4"
+                        >
+                          <div className="relative w-20 h-24 rounded-xl overflow-hidden shrink-0 bg-black/40 border border-white/10">
+                            <img
+                              src={item.image || item.images?.[0] || 'img/d.jpeg'}
+                              alt={item.name || item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <span className="inline-block text-[10px] tracking-wider uppercase font-bold text-[#f4cfeb] mb-1">
+                              {item.subCategory || item.category || 'Handloom'}
+                            </span>
+                            <h4 className="text-sm font-semibold text-white group-hover:text-[#b13896] transition-colors truncate mb-1" style={{ fontFamily: NAV_SANS }}>
+                              {item.name || item.title}
+                            </h4>
+                            {item.tagline && (
+                              <p className="text-[11px] text-white/50 truncate mb-2" style={{ fontFamily: NAV_SANS }}>
+                                {item.tagline}
+                              </p>
+                            )}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-sm font-bold text-white">
+                                  ₹{Number(item.price || 0).toLocaleString()}
+                                </span>
+                                {(item.original_price || item.mrp) && (
+                                  <span className="text-xs text-white/40 line-through">
+                                    ₹{Number(item.original_price || item.mrp).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="p-1.5 rounded-full bg-[#b13896]/20 text-[#b13896] group-hover:bg-[#b13896] group-hover:text-white transition-all">
+                                <ArrowRight size={14} />
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* No Results Found State */
+                    <div className="text-center py-16 px-4 space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 mb-2">
+                        <Search size={28} strokeWidth={1.2} />
+                      </div>
+                      <h3 className="text-xl font-light text-white" style={{ fontFamily: NAV_SERIF }}>
+                        No results found for "{searchVal}"
+                      </h3>
+                      <p className="text-xs text-white/60 max-w-md mx-auto leading-relaxed" style={{ fontFamily: NAV_SANS }}>
+                        We couldn't find any sarees or collections matching your exact keywords. Try searching for broad terms like <strong className="text-white">Dhaniakhali</strong>, <strong className="text-white">Begumpuri</strong>, <strong className="text-white">Silk</strong>, or <strong className="text-white">Cotton</strong>.
+                      </p>
+                      <div className="pt-2">
+                        <button
+                          onClick={() => handlePerformSearch(searchVal)}
+                          className="px-6 py-3 rounded-full bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-lg cursor-pointer"
+                        >
+                          Explore Full Shop Catalog
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

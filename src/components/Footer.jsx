@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, Facebook, Youtube, Mail, ArrowRight, MapPin, Phone, Sparkles } from 'lucide-react';
+import { Instagram, Facebook, Youtube, Mail, ArrowRight, MapPin, Phone, Sparkles, MessageCircle } from 'lucide-react';
 
 const DARK = '#161114';
 const MAGENTA = '#b13896';
@@ -148,9 +148,9 @@ const Footer = () => {
               {/* Social Media Links */}
               <div className="flex items-center gap-3.5 pt-3">
                 {[
-                  { icon: <Instagram size={19} />, href: 'https://instagram.com/tuka_official?utm_source=tuka_website&utm_medium=footer#instagram', label: 'Instagram' },
-                  { icon: <Facebook size={19} />, href: 'https://facebook.com/tukaofficial?utm_source=tuka_website&utm_medium=footer#facebook', label: 'Facebook' },
-                  { icon: <Youtube size={20} />, href: 'https://youtube.com/@tukaofficial?utm_source=tuka_website&utm_medium=footer#youtube', label: 'YouTube' },
+                  { icon: <Instagram size={19} />, href: 'https://www.instagram.com/reel/Da623OHsZyl/?igsh=MjB3MzBwbjJudnli', label: 'Instagram' },
+                  { icon: <Facebook size={19} />, href: 'https://www.facebook.com/share/p/14iA59vUbt6/', label: 'Facebook' },
+                  { icon: <MessageCircle size={19} />, href: 'https://wa.me/message/VFPFWD6OPAYVC1', label: 'WhatsApp' },
                 ].map(({ icon, href, label }) => (
                   <a
                     key={label}

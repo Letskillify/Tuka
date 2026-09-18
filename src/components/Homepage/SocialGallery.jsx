@@ -97,7 +97,7 @@ const SocialGallery = () => {
 
           {/* Join Us Card */}
           <a
-            href="https://instagram.com/tuka_official?utm_source=tuka_website&utm_medium=social_gallery#instagram"
+            href="https://www.instagram.com/reel/Da623OHsZyl/?igsh=MjB3MzBwbjJudnli"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden lg:flex flex-col justify-center items-center text-center p-10 border border-[#640D14]/15 bg-[#F5EDD8] aspect-square rounded-xl hover:border-[#640D14]/30 hover:shadow-[0_12px_40px_rgba(100,13,20,0.1)] transition-all duration-500 group cursor-pointer"
@@ -116,7 +116,7 @@ const SocialGallery = () => {
         {/* Bottom CTA */}
         <div className="text-center mt-20">
           <a
-            href="https://instagram.com/tuka_official?utm_source=tuka_website&utm_medium=social_gallery_cta#instagram"
+            href="https://www.instagram.com/reel/Da623OHsZyl/?igsh=MjB3MzBwbjJudnli"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block group relative pr-12 text-[#2C1A0E] hover:text-[#640D14] transition-colors duration-500"

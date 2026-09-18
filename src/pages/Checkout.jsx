@@ -24,7 +24,23 @@ import {
   Building,
   Check
 } from "lucide-react";
-import { load } from "@cashfreepayments/cashfree-js";
+
+// Safe dynamic Cashfree loader helper
+const loadCashfreeSDK = async (mode = "sandbox") => {
+  try {
+    const cashfreeSdk = await import("@cashfreepayments/cashfree-js");
+    const loadFn = cashfreeSdk.load || cashfreeSdk.default?.load;
+    if (loadFn) {
+      return await loadFn({ mode });
+    }
+  } catch (e) {
+    console.warn("[Checkout] Cashfree SDK import warning:", e);
+  }
+  if (typeof window !== "undefined" && window.Cashfree) {
+    return new window.Cashfree({ mode });
+  }
+  throw new Error("Unable to load Cashfree Payment gateway. Please refresh or try Cash on Delivery.");
+};
 
 const Checkout = () => {
   const { cartItems, cartCount, clearCart } = useStore();
@@ -280,7 +296,7 @@ const Checkout = () => {
         return;
       }
 
-      const cashfree = await load({ mode: "sandbox" }); // Use "production" for live
+      const cashfree = await loadCashfreeSDK("sandbox"); // Use "production" for live
 
       const checkoutOptions = {
         paymentSessionId: cData.payment_session_id

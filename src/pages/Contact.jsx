@@ -77,7 +77,7 @@ const Contact = () => {
                       Call or WhatsApp
                     </span>
                     <a 
-                      href="https://wa.me/916265998887" 
+                      href="https://wa.me/message/VFPFWD6OPAYVC1" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-base font-semibold text-slate-900 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
@@ -152,13 +152,13 @@ const Contact = () => {
                 Tap below to chat directly with our studio team on WhatsApp for custom drape advice, weave verification, or order updates.
               </p>
               <a 
-                href="https://wa.me/916265998887?text=Hello%20Tuka%20Studio,%20I%20need%20assistance%20with%20a%20saree%20order."
+                href="https://wa.me/message/VFPFWD6OPAYVC1"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans"
               >
                 <MessageCircle size={16} />
-                <span>Chat on WhatsApp (+91 62659 98887)</span>
+                <span>Message 2KAS BOUTIQUE on WhatsApp</span>
               </a>
             </div>
 

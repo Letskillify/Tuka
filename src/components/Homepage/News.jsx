@@ -135,7 +135,7 @@ const TheJournal = () => {
           className="flex justify-center"
         >
           <a
-            href="https://instagram.com/tuka.official?utm_source=tuka_website&utm_medium=style_world#tuka-instagram"
+            href="https://www.instagram.com/reel/Da623OHsZyl/?igsh=MjB3MzBwbjJudnli"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-4 group"
