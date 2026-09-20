@@ -178,7 +178,7 @@ const generateCustomerEmailHtml = (order) => {
           <tr>
             <td style="background-color: #161114; padding: 24px; text-align: center; color: #888; font-size: 12px; line-height: 1.6;">
               Need concierge assistance or live weaving updates?<br/>
-              WhatsApp our master weavers directly: <strong style="color: #25D366;">+91 62659 98887</strong><br/><br/>
+              WhatsApp our master weavers directly: <strong style="color: #25D366;">+91 74004 44522</strong><br/><br/>
               © ${new Date().getFullYear()} House of Tuka. All rights reserved.
             </td>
           </tr>

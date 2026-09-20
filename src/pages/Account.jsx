@@ -709,15 +709,15 @@ const Account = () => {
                   </div>
                   <h3 className="text-2xl font-serif">Tuka Concierge & VIP Support</h3>
                   <p className="text-sm text-white/70 font-light leading-relaxed max-w-xl">
-                    Need live video verification of saree fabrics, custom blouse sizing advice, or urgent delivery dispatch? Connect directly with our studio weavers on WhatsApp (+91 62659 98887).
+                    Need live video verification of saree fabrics, custom blouse sizing advice, or urgent delivery dispatch? Connect directly with our studio weavers on WhatsApp (+91 74004 44522).
                   </p>
                   <a
-                    href="https://wa.me/916265998887?text=Hello%20Tuka%20Concierge,%20I%20need%20VIP%20assistance."
+                    href="https://wa.me/917400444522?text=Hello%20Tuka%20Concierge,%20I%20need%20VIP%20assistance."
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-3 px-6 py-3.5 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-[#25D366]/30 transition-all cursor-pointer"
                   >
-                    <MessageCircle size={18} /> Chat on WhatsApp (+91 62659 98887)
+                    <MessageCircle size={18} /> Chat on WhatsApp (+91 74004 44522)
                   </a>
                 </div>
               </motion.div>

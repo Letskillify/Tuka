@@ -298,12 +298,15 @@ const ProductDetail = () => {
           {/* Right Column: Detailed Product Info & Purchase Options */}
           <div className="w-full lg:w-[46%] py-1 space-y-6">
 
-            {/* Category, Title & Rating */}
+            {/* Category, Title, Product No & Rating */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <AttributeBadges attributes={product.attributes} />
                 <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#b13896] font-sans">
                   {product.category || 'Tuka Heritage'}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md font-sans">
+                  Product No: <span className="text-slate-900 font-bold">{product.product_no || product.productNo || product.sku || product.productCode || product.id.slice(0, 10)}</span>
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-light text-[#161114] leading-tight font-serif">
@@ -500,7 +503,7 @@ const ProductDetail = () => {
                   content: (
                     <div className="grid grid-cols-2 gap-3 py-2 text-xs">
                       {[
-                        { label: 'Reference Code', value: product.id.slice(0, 10).toUpperCase() },
+                        { label: 'Product No', value: product.product_no || product.productNo || product.sku || product.productCode || product.id.slice(0, 10) },
                         { label: 'Fabric / Material', value: product.material || 'Authentic Bengal Cotton / Silk' },
                         { label: 'Selected Size', value: selectedSize ? selectedSize.size : 'Standard / Free Size' },
                         { label: 'Sub-Category', value: product.subCategory || 'Handloom' },

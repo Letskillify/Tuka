@@ -4,11 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const FloatingWhatsApp = () => {
   const [showTooltip, setShowTooltip] = useState(true);
-  const whatsappNumber = '916265998887';
+  const whatsappNumber = '917400444522';
   const defaultMessage = 'Hello Tuka, I have an inquiry regarding handloom sarees and designer blouses.';
 
   const handleWhatsAppClick = () => {
-    window.open("https://wa.me/message/VFPFWD6OPAYVC1", '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(defaultMessage)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

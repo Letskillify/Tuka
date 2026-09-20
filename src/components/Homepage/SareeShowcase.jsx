@@ -115,7 +115,7 @@ const sareeData = [
   {
     id: 'hindshree',
     number: '04',
-    title: 'Hindshree Signature Collection',
+    title: 'Hindshree Collection',
     subtitle: 'Unbound Creativity & Handloom Innovation',
     origin: 'Weaving Clusters, West Bengal',
     giTag: 'Signature Handloom Craft',

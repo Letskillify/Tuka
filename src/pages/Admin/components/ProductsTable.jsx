@@ -8,7 +8,7 @@ const ProductsTable = ({ products, onAddProduct, onEditProduct, onDeleteProduct,
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const filteredProducts = useMemo(() => products.filter((product) => {
-    const matchesSearch = `${product.name || ""} ${product.sku || ""} ${product.subCategory || ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = `${product.name || ""} ${product.product_no || product.productNo || product.sku || ""} ${product.subCategory || ""}`.toLowerCase().includes(search.toLowerCase());
     return matchesSearch && (category === "All Categories" || product.category === category);
   }), [products, search, category]);
   const categories = [...new Set(products.map((product) => product.category).filter(Boolean))];
@@ -59,7 +59,7 @@ const ProductsTable = ({ products, onAddProduct, onEditProduct, onDeleteProduct,
         <thead>
           <tr className="text-[14px] font-bold text-slate-400 uppercase tracking-[0.12em] border-b border-slate-50 bg-slate-50/60">
             <th className="px-8 py-4">Product</th>
-            <th className="px-5 py-4">SKU</th>
+            <th className="px-5 py-4">Product No</th>
             <th className="px-5 py-4">Category</th>
             <th className="px-5 py-4">Sub Category</th>
             <th className="px-5 py-4">Price</th>
@@ -95,7 +95,7 @@ const ProductsTable = ({ products, onAddProduct, onEditProduct, onDeleteProduct,
                   </div>
                 </div>
               </td>
-              <td className="px-5 py-4 text-[14px] font-medium text-slate-500">{row.sku || row.productCode || row.id.slice(0, 10)}</td>
+              <td className="px-5 py-4 text-[14px] font-medium text-slate-500">{row.product_no || row.productNo || row.sku || row.productCode || row.id.slice(0, 10)}</td>
               <td className="px-5 py-4">
                 <span className="text-[14px] font-semibold text-slate-655 bg-slate-100 px-2.5 py-1 rounded-lg">
                   {row.category || "Uncategorized"}

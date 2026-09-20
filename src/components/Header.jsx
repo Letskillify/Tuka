@@ -140,9 +140,9 @@ const LuxuryHeader = () => {
   const [recentSearches, setRecentSearches] = useState(() => {
     try {
       const saved = localStorage.getItem('tuka_recent_searches');
-      return saved ? JSON.parse(saved) : ['Dhaniakhali Saree', 'Begumpuri', 'Shantipuri', 'Designer Blouse'];
+      return saved ? JSON.parse(saved) : ['Dhaniakhali Saree', 'Begumpuri', 'Shantipuri', 'Jamdani Saree'];
     } catch (e) {
-      return ['Dhaniakhali Saree', 'Begumpuri', 'Shantipuri', 'Designer Blouse'];
+      return ['Dhaniakhali Saree', 'Begumpuri', 'Shantipuri', 'Jamdani Saree'];
     }
   });
 
@@ -227,7 +227,6 @@ const LuxuryHeader = () => {
     // Standard baseline categories
     const defaultCats = [
       'Saree',
-      'Boutique Collection',
     ];
     defaultCats.forEach(addCat);
 
@@ -246,8 +245,21 @@ const LuxuryHeader = () => {
       if (s.category) addCat(s.category);
     });
 
+    const excludedCategories = [
+      'handloom saree',
+      'designer blouse',
+      'boutique collection',
+      'kurtis',
+      'kurti',
+      'dress material',
+      'dress materials',
+      'blouse',
+      'stoles',
+      'stole',
+    ];
+
     const categoriesList = Array.from(categoryMap.values()).filter(
-      (cat) => cat.toLowerCase() !== 'handloom saree' && cat.toLowerCase() !== 'designer blouse'
+      (cat) => !excludedCategories.includes(cat.toLowerCase().trim())
     );
 
     const categoryPromoImages = {
@@ -569,7 +581,7 @@ const LuxuryHeader = () => {
 
               {/* Category Filter Pills */}
               <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 scrollbar-hide">
-                {['All', 'Handloom Saree', 'Designer Blouse', 'Boutique Collection'].map((cat) => {
+                {['All', 'Handloom Saree', 'Saree'].map((cat) => {
                   const isActive = searchCategory === cat;
                   return (
                     <button
@@ -637,7 +649,7 @@ const LuxuryHeader = () => {
                       Popular Collections & Weaves
                     </span>
                     <div className="flex flex-wrap gap-2.5">
-                      {['Dhaniakhali Saree', 'Begumpuri Saree', 'Shantipuri Silk', 'Hindshree Saree', 'Designer Blouse', 'Cotton Khadi'].map((tag) => (
+                      {['Dhaniakhali Saree', 'Begumpuri Saree', 'Shantipuri Silk', 'Hindshree Saree', 'Jamdani Saree', 'Cotton Khadi'].map((tag) => (
                         <button
                           key={tag}
                           type="button"

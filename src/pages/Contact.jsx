@@ -17,7 +17,7 @@ const Contact = () => {
     setSubmitted(true);
 
     const textMsg = `Hello Tuka Studio,\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}\nInquiry: ${formData.subject}\nMessage: ${formData.message}`;
-    const whatsappUrl = `https://wa.me/916265998887?text=${encodeURIComponent(textMsg)}`;
+    const whatsappUrl = `https://wa.me/917400444522?text=${encodeURIComponent(textMsg)}`;
     
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setTimeout(() => setSubmitted(false), 3000);
@@ -77,12 +77,12 @@ const Contact = () => {
                       Call or WhatsApp
                     </span>
                     <a 
-                      href="https://wa.me/message/VFPFWD6OPAYVC1" 
+                      href="https://wa.me/917400444522" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-base font-semibold text-slate-900 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
                     >
-                      +91 62659 98887
+                      +91 74004 44522
                     </a>
                     <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
                       Mon – Sat, 9:30 AM – 8:30 PM IST
@@ -152,7 +152,7 @@ const Contact = () => {
                 Tap below to chat directly with our studio team on WhatsApp for custom drape advice, weave verification, or order updates.
               </p>
               <a 
-                href="https://wa.me/message/VFPFWD6OPAYVC1"
+                href="https://wa.me/917400444522"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans"

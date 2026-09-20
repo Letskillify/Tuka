@@ -106,12 +106,13 @@ const ProductDetailHero = ({
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-[#b13896]/40 bg-[#b13896]/15 backdrop-blur-md text-[9px] sm:text-[10px] font-bold tracking-[0.22em] text-[#f4cfeb] uppercase mb-2 shadow-sm"
+          className="inline-flex flex-wrap items-center justify-center gap-1.5 px-3.5 py-1 rounded-full border border-[#b13896]/40 bg-[#b13896]/15 backdrop-blur-md text-[9px] sm:text-[10px] font-bold tracking-[0.22em] text-[#f4cfeb] uppercase mb-2 shadow-sm"
           style={{ fontFamily: SANS }}
         >
           <Sparkles size={11} className="text-[#f4cfeb]" />
           <span>{product.category || 'HANDLOOM MASTERPIECE'}</span>
           {product.subCategory && <span className="opacity-70">• {product.subCategory}</span>}
+          <span className="opacity-90">• Product No: {product.product_no || product.productNo || product.sku || product.productCode || product.id.slice(0, 10)}</span>
         </motion.div>
 
         {/* Compact & Premium Product Name */}

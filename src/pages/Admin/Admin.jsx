@@ -164,7 +164,7 @@ const Admin = () => {
     const q = globalSearch.trim().toLowerCase();
     if (!q) { setSearchResults([]); setShowSearchResults(false); return; }
     const matched = products.filter((p) =>
-      `${p.name || ""} ${p.sku || ""} ${p.category || ""} ${p.country || ""}`.toLowerCase().includes(q)
+      `${p.name || ""} ${p.product_no || p.productNo || p.sku || ""} ${p.category || ""} ${p.country || ""}`.toLowerCase().includes(q)
     ).slice(0, 8).map((p) => ({ type: "product", label: p.name, sub: p.category || "No category", id: p.id, img: p.images?.[0] }));
     const matchedOrders = orders.filter((o) =>
       `${o.id} ${o.customerName || ""} ${o.email || ""}`.toLowerCase().includes(q)
