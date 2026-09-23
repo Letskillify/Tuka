@@ -1,20 +1,20 @@
 import crypto from "node:crypto";
-import { 
-  clientDb, 
-  adminDb, 
-  adminAuth, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  serverTimestamp 
+import {
+  clientDb,
+  adminDb,
+  adminAuth,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  serverTimestamp
 } from "./_lib/firebaseServer.js";
 
-const getDb = () => adminDb || clientDb;
+const getDb = () => clientDb;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

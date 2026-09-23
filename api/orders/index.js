@@ -15,7 +15,7 @@ import {
 } from "../_lib/firebaseServer.js";
 import { sendOrderEmails } from "../_lib/emailService.js";
 
-const getDb = () => adminDb || clientDb;
+const getDb = () => clientDb;
 
 const generateOrderNumber = () => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

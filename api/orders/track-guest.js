@@ -1,13 +1,13 @@
-import { 
-  clientDb, 
-  adminDb, 
-  collection, 
-  query, 
-  where, 
-  getDocs 
+import {
+  clientDb,
+  adminDb,
+  collection,
+  query,
+  where,
+  getDocs
 } from "../_lib/firebaseServer.js";
 
-const getDb = () => adminDb || clientDb;
+const getDb = () => clientDb;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

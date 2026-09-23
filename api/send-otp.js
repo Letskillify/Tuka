@@ -1,15 +1,15 @@
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
-import { 
-  clientDb, 
-  adminDb, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  serverTimestamp 
+import {
+  clientDb,
+  adminDb,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp
 } from "./_lib/firebaseServer.js";
 
-const getDb = () => adminDb || clientDb;
+const getDb = () => clientDb;
 
 const isValidEmail = (email) => {
   return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
