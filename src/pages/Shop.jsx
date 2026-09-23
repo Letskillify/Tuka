@@ -19,7 +19,7 @@ const Shop = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [cartLoadings, setCartLoadings] = useState({});
   const [wishlistLoadings, setWishlistLoadings] = useState({});
-  
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -33,10 +33,10 @@ const Shop = () => {
 
   const materials = ['All', 'Cotton', 'Silk', 'Khadi', 'Linen', 'Jamdani'];
   const categories = [
-    'All', 
-    'Handloom Saree', 
-    'Designer Blouse', 
-    'Boutique Collection', 
+    'All',
+    'Handloom Saree',
+    'Designer Blouse',
+    'Boutique Collection',
     'New Arrivals'
   ];
 
@@ -165,7 +165,7 @@ const Shop = () => {
     e.stopPropagation();
     setCartLoadings(prev => ({ ...prev, [product.id]: true }));
     try {
-      const defaultVariant = product.sizeVariants && product.sizeVariants.length > 0 
+      const defaultVariant = product.sizeVariants && product.sizeVariants.length > 0
         ? (product.sizeVariants.find(v => Number(v.stock || 0) > 0) || product.sizeVariants[0])
         : null;
 
@@ -203,9 +203,9 @@ const Shop = () => {
       (p.subCategory || '').toLowerCase().includes(term) ||
       (p.description || '').toLowerCase().includes(term) ||
       (p.tags || []).some(t => String(t).toLowerCase().includes(term));
-    
+
     let matchesCategory = false;
-    if (selectedCategory === 'All') {
+    if (selectedCategory.toLowerCase() === 'all') {
       matchesCategory = true;
     } else {
       const targetCat = selectedCategory.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -216,12 +216,12 @@ const Shop = () => {
       const prodTags = (p.tags || []).map(t => String(t).toLowerCase());
 
       matchesCategory = prodCat.includes(targetCat) ||
-                        targetCat.includes(prodCat) ||
-                        prodSubCat.includes(targetCat) ||
-                        targetCat.includes(prodSubCat) ||
-                        prodName.includes(selectedCategory.toLowerCase()) ||
-                        prodDesc.includes(selectedCategory.toLowerCase()) ||
-                        prodTags.some(t => t.includes(selectedCategory.toLowerCase()));
+        targetCat.includes(prodCat) ||
+        prodSubCat.includes(targetCat) ||
+        targetCat.includes(prodSubCat) ||
+        prodName.includes(selectedCategory.toLowerCase()) ||
+        prodDesc.includes(selectedCategory.toLowerCase()) ||
+        prodTags.some(t => t.includes(selectedCategory.toLowerCase()));
     }
 
     const itemPrice = Number(p.price || 0);
@@ -247,11 +247,11 @@ const Shop = () => {
 
   return (
     <div className="relative min-h-screen bg-[#FDFAF5] font-sans text-[#161114]">
-      
+
       {selectedProduct && <QuickView product={selectedProduct} onClose={() => handleQuickViewOpen(null)} />}
 
       {/* Shared Hero Header */}
-      <Breadcrumb 
+      <Breadcrumb
         title="Our Collection"
         subtitle="Discover our curated selection of handcrafted Bengal sarees and designer blouses, woven with timeless tradition."
         bgImage="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&q=80&w=1600"
@@ -262,21 +262,20 @@ const Shop = () => {
       />
 
       <div id="products" className="max-w-[1440px] mx-auto px-6 lg:px-12 py-12">
-        
+
         {/* Editorial Filter Header Bar */}
         <div className="bg-white rounded-2xl p-6 md:p-8 border border-black/5 shadow-sm mb-10 space-y-6">
-          
+
           {/* Categories - Luxury Scrollable Pills */}
           <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-hide pb-2">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => handleCategoryChange(cat)}
-                className={`px-5 py-2.5 rounded-full text-[12px] font-bold tracking-[0.18em] uppercase transition-all duration-300 whitespace-nowrap cursor-pointer ${
-                  selectedCategory.toLowerCase() === cat.toLowerCase()
-                    ? 'bg-[#b13896] text-white shadow-lg shadow-[#b13896]/20 scale-105' 
-                    : 'bg-[#F8F4EF] text-[#4a3f44] border border-[#e5d5df]/40 hover:border-[#b13896] hover:text-[#b13896] hover:bg-white'
-                }`}
+                className={`px-5 py-2.5 rounded-full text-[12px] font-bold tracking-[0.18em] uppercase transition-all duration-300 whitespace-nowrap cursor-pointer ${selectedCategory.toLowerCase() === cat.toLowerCase()
+                  ? 'bg-[#b13896] text-white shadow-lg shadow-[#b13896]/20 scale-105'
+                  : 'bg-[#F8F4EF] text-[#4a3f44] border border-[#e5d5df]/40 hover:border-[#b13896] hover:text-[#b13896] hover:bg-white'
+                  }`}
               >
                 {cat}
               </button>
@@ -287,15 +286,15 @@ const Shop = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-[#e5d5df]/30">
             <div className="relative flex-1 w-full max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#b13896]" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search sarees, khadi, Jamdani, designer blouses…" 
+              <input
+                type="text"
+                placeholder="Search sarees, khadi, Jamdani, designer blouses…"
                 className="w-full bg-[#F8F4EF] border border-[#e5d5df]/60 rounded-full pl-11 pr-10 py-3 text-[13px] text-[#161114] outline-none focus:border-[#b13896] focus:bg-white transition-all placeholder:text-[#4a3f44]/40"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
               {searchTerm && (
-                <button 
+                <button
                   onClick={() => handleSearchChange('')}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-[#4a3f44]/50 hover:text-[#161114] transition-colors"
                 >
@@ -316,7 +315,7 @@ const Shop = () => {
 
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-widest text-[#4a3f44]/60">Sort:</span>
-                <select 
+                <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
                   className="bg-[#F8F4EF] border border-[#e5d5df]/60 rounded-full px-4 py-2.5 text-[12px] text-[#161114] outline-none focus:border-[#b13896] transition-all cursor-pointer appearance-none pr-8 font-bold tracking-wider uppercase"
@@ -368,7 +367,7 @@ const Shop = () => {
                   <X size={12} className="cursor-pointer hover:scale-110" onClick={() => handlePriceChange(0, 50000)} />
                 </span>
               )}
-              <button 
+              <button
                 onClick={resetAllFilters}
                 className="text-[11px] font-bold text-[#b13896] hover:underline ml-2 uppercase tracking-wider"
               >
@@ -380,7 +379,7 @@ const Shop = () => {
 
         {/* Main Grid Section: Sidebar (Desktop) + Products Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Desktop Filter Sidebar */}
           <aside className="hidden lg:block lg:col-span-3 bg-white rounded-2xl p-6 border border-black/5 shadow-sm space-y-8 sticky top-28">
             <div className="flex items-center justify-between border-b border-[#e5d5df]/40 pb-4">
@@ -397,7 +396,7 @@ const Shop = () => {
             <div className="space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#161114]">Price Range (₹)</h4>
               <div className="space-y-3">
-                <input 
+                <input
                   type="range"
                   min="0"
                   max="50000"
@@ -427,11 +426,10 @@ const Shop = () => {
                     key={mat}
                     type="button"
                     onClick={() => handleMaterialChange(mat)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                      selectedMaterial.toLowerCase() === mat.toLowerCase()
-                        ? 'bg-[#b13896] text-white shadow-sm'
-                        : 'bg-[#F8F4EF] text-[#4a3f44] hover:bg-[#b13896]/10 hover:text-[#b13896]'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${selectedMaterial.toLowerCase() === mat.toLowerCase()
+                      ? 'bg-[#b13896] text-white shadow-sm'
+                      : 'bg-[#F8F4EF] text-[#4a3f44] hover:bg-[#b13896]/10 hover:text-[#b13896]'
+                      }`}
                   >
                     {mat}
                   </button>
@@ -443,7 +441,7 @@ const Shop = () => {
             <div className="border-t border-[#e5d5df]/40 pt-6">
               <label className="flex items-center justify-between cursor-pointer group">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#161114]">In Stock Only</span>
-                <input 
+                <input
                   type="checkbox"
                   checked={inStockOnly}
                   onChange={(e) => handleStockToggle(e.target.checked)}
@@ -471,11 +469,11 @@ const Shop = () => {
                   const defaultVariant = product.sizeVariants && product.sizeVariants.length > 0
                     ? (product.sizeVariants.find(v => Number(v.stock || 0) > 0) || product.sizeVariants[0])
                     : null;
-                  
+
                   const price = defaultVariant ? Number(defaultVariant.price) : Number(product.price || 0);
                   const original_price = defaultVariant ? Number(defaultVariant.original_price) : Number(product.original_price || 0);
                   const stock = defaultVariant ? Number(defaultVariant.stock || 0) : Number(product.stock || 0);
-                  
+
                   const isSale = original_price > price;
                   const hasVariants = product.sizeVariants && product.sizeVariants.length > 0;
                   const isItemInCart = isInCart(defaultVariant ? `${product.id}_${defaultVariant.size}` : product.id);
@@ -492,12 +490,12 @@ const Shop = () => {
                     >
                       {/* Image */}
                       <div className="aspect-[3/4] overflow-hidden bg-[#f7ebf2] mb-3 relative rounded-xl border border-black/5">
-                        <img 
-                          src={product.image || product.images?.[0]} 
-                          alt={product.name} 
+                        <img
+                          src={product.image || product.images?.[0]}
+                          alt={product.name}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
-                        
+
                         {/* Badges & Attributes */}
                         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10 max-w-[70%]">
                           <AttributeBadges attributes={product.attributes} />
@@ -514,14 +512,13 @@ const Shop = () => {
                         </div>
 
                         {/* Wishlist Button */}
-                        <button 
-                          onClick={(e) => handleAddToWishlist(e, product)} 
+                        <button
+                          onClick={(e) => handleAddToWishlist(e, product)}
                           disabled={wishlistLoadings[product.id]}
-                          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10 cursor-pointer ${
-                            isInWishlist(product.id) 
-                              ? 'bg-[#b13896] text-white' 
-                              : 'bg-white/80 backdrop-blur-sm text-[#161114] opacity-0 group-hover:opacity-100 hover:bg-[#b13896] hover:text-white'
-                          }`}
+                          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10 cursor-pointer ${isInWishlist(product.id)
+                            ? 'bg-[#b13896] text-white'
+                            : 'bg-white/80 backdrop-blur-sm text-[#161114] opacity-0 group-hover:opacity-100 hover:bg-[#b13896] hover:text-white'
+                            }`}
                         >
                           {wishlistLoadings[product.id] ? (
                             <Loader2 size={12} className="animate-spin" />
@@ -531,8 +528,8 @@ const Shop = () => {
                         </button>
 
                         {/* Quick View Button */}
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleQuickViewOpen(product); }} 
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleQuickViewOpen(product); }}
                           className="absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-[#161114] opacity-0 group-hover:opacity-100 hover:bg-[#b13896] hover:text-white transition-all z-10 cursor-pointer"
                         >
                           <Eye size={14} />
@@ -540,16 +537,15 @@ const Shop = () => {
 
                         {/* Add to Cart Overlay */}
                         <div className="absolute bottom-0 left-0 right-0 p-2.5 translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10">
-                          <button 
+                          <button
                             onClick={(e) => stock > 0 && handleAddToCart(e, product)}
                             disabled={stock <= 0 || cartLoadings[product.id]}
-                            className={`w-full py-2.5 text-[12px] tracking-wider font-bold uppercase flex items-center justify-center gap-2 rounded-lg transition-all cursor-pointer ${
-                              stock <= 0
+                            className={`w-full py-2.5 text-[12px] tracking-wider font-bold uppercase flex items-center justify-center gap-2 rounded-lg transition-all cursor-pointer ${stock <= 0
                               ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                              : isItemInCart 
-                              ? 'bg-[#b13896] text-white' 
-                              : 'bg-[#161114] text-white hover:bg-[#b13896]'
-                            }`}
+                              : isItemInCart
+                                ? 'bg-[#b13896] text-white'
+                                : 'bg-[#161114] text-white hover:bg-[#b13896]'
+                              }`}
                           >
                             {cartLoadings[product.id] ? (
                               <Loader2 size={12} className="animate-spin" />
@@ -580,8 +576,8 @@ const Shop = () => {
               <div className="text-center py-24 bg-white rounded-2xl border border-black/5">
                 <ShoppingBag size={40} strokeWidth={1} className="mx-auto text-[#b13896]/20 mb-4" />
                 <p className="font-serif text-xl text-[#4a3f44]/60 mb-4">No products matching selected criteria</p>
-                <button 
-                  onClick={resetAllFilters} 
+                <button
+                  onClick={resetAllFilters}
                   className="text-[12px] font-bold text-[#b13896] hover:text-[#161114] transition-colors cursor-pointer uppercase tracking-wider"
                 >
                   Clear all filters
@@ -616,7 +612,7 @@ const Shop = () => {
                     <SlidersHorizontal size={16} className="text-[#b13896]" />
                     Filter Collection
                   </h3>
-                  <button 
+                  <button
                     onClick={() => setIsFilterDrawerOpen(false)}
                     className="p-2 rounded-full border border-[#e5d5df]/60 text-[#161114]"
                   >
@@ -632,11 +628,10 @@ const Shop = () => {
                       <button
                         key={cat}
                         onClick={() => handleCategoryChange(cat)}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                          selectedCategory.toLowerCase() === cat.toLowerCase()
-                            ? 'bg-[#b13896] text-white shadow-sm'
-                            : 'bg-[#F8F4EF] text-[#4a3f44]'
-                        }`}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${selectedCategory.toLowerCase() === cat.toLowerCase()
+                          ? 'bg-[#b13896] text-white shadow-sm'
+                          : 'bg-[#F8F4EF] text-[#4a3f44]'
+                          }`}
                       >
                         {cat}
                       </button>
@@ -648,7 +643,7 @@ const Shop = () => {
                 <div className="space-y-4 border-t border-[#e5d5df]/40 pt-6">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#161114]">Price Range (₹)</h4>
                   <div className="space-y-3">
-                    <input 
+                    <input
                       type="range"
                       min="0"
                       max="50000"
@@ -678,11 +673,10 @@ const Shop = () => {
                         key={mat}
                         type="button"
                         onClick={() => handleMaterialChange(mat)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                          selectedMaterial.toLowerCase() === mat.toLowerCase()
-                            ? 'bg-[#b13896] text-white shadow-sm'
-                            : 'bg-[#F8F4EF] text-[#4a3f44]'
-                        }`}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${selectedMaterial.toLowerCase() === mat.toLowerCase()
+                          ? 'bg-[#b13896] text-white shadow-sm'
+                          : 'bg-[#F8F4EF] text-[#4a3f44]'
+                          }`}
                       >
                         {mat}
                       </button>
@@ -694,7 +688,7 @@ const Shop = () => {
                 <div className="border-t border-[#e5d5df]/40 pt-6">
                   <label className="flex items-center justify-between cursor-pointer">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#161114]">In Stock Only</span>
-                    <input 
+                    <input
                       type="checkbox"
                       checked={inStockOnly}
                       onChange={(e) => handleStockToggle(e.target.checked)}

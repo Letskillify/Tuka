@@ -58,6 +58,15 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/razorpay/create-order') {
             const module = await server.ssrLoadModule('/api/razorpay/create-order.js');
             return await module.default(req, res);
+          } else if (pathname === '/api/cashfree/create-order') {
+            const module = await server.ssrLoadModule('/api/cashfree/create-order.js');
+            return await module.default(req, res);
+          } else if (pathname === '/api/delhivery/check-pincode') {
+            const module = await server.ssrLoadModule('/api/delhivery/check-pincode.js');
+            return await module.default(req, res);
+          } else if (pathname === '/api/delhivery/track-shipment') {
+            const module = await server.ssrLoadModule('/api/delhivery/track-shipment.js');
+            return await module.default(req, res);
           }
         } catch (err) {
           console.error('[ViteDevAPI] Error handling', pathname, ':', err);

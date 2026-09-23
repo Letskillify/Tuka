@@ -14,7 +14,21 @@ const QuickView = ({ product, onClose }) => {
   const handleAddToCart = async () => {
     setCartLoading(true);
     try {
-      await addToCart(product, quantity);
+      const defaultVariant = product.sizeVariants && product.sizeVariants.length > 0
+        ? (product.sizeVariants.find(v => Number(v.stock || 0) > 0) || product.sizeVariants[0])
+        : null;
+
+      const productToCart = {
+        ...product,
+        id: defaultVariant ? `${product.id}_${defaultVariant.size}` : product.id,
+        name: defaultVariant ? `${product.name} (${defaultVariant.size})` : product.name,
+        price: defaultVariant ? Number(defaultVariant.price) : Number(product.price),
+        original_price: defaultVariant ? Number(defaultVariant.original_price) : Number(product.original_price),
+        stock: defaultVariant ? Number(defaultVariant.stock) : Number(product.stock),
+        selectedSize: defaultVariant ? defaultVariant.size : null
+      };
+
+      await addToCart(productToCart, quantity);
     } finally {
       setCartLoading(false);
     }
@@ -181,16 +195,15 @@ const QuickView = ({ product, onClose }) => {
                 </div>
 
                 {/* Add to Cart */}
-                <button 
+                <button
                   onClick={() => product.stock > 0 && handleAddToCart()}
                   disabled={product.stock <= 0 || cartLoading}
-                  className={`w-full px-6 py-4 rounded-2xl font-black uppercase tracking-wider transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-2 ${
-                    product.stock <= 0
+                  className={`w-full px-6 py-4 rounded-2xl font-black uppercase tracking-wider transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-2 ${product.stock <= 0
                     ? 'bg-red-900/50 text-white cursor-not-allowed border border-red-500/30'
                     : isInCart(product.id)
-                    ? 'bg-accent text-white shadow-accent/20'
-                    : 'bg-[#C6A664] text-white hover:bg-[#B59553] shadow-[#C6A664]/20'
-                  }`}
+                      ? 'bg-accent text-white shadow-accent/20'
+                      : 'bg-[#C6A664] text-white hover:bg-[#B59553] shadow-[#C6A664]/20'
+                    }`}
                 >
                   {cartLoading ? (
                     <Loader2 size={20} className="animate-spin" />

@@ -35,18 +35,30 @@ const ProductDetail = () => {
   const [deliveryMsg, setDeliveryMsg] = useState(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
 
-  const handlePincodeCheck = (e) => {
+  const handlePincodeCheck = async (e) => {
     e.preventDefault();
     if (!pincode || pincode.length < 6) return;
     setCheckingPincode(true);
-    setTimeout(() => {
-      const days = Math.floor(Math.random() * 2) + 3;
-      const delDate = new Date();
-      delDate.setDate(delDate.getDate() + days);
-      const formattedDate = delDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
-      setDeliveryMsg(`Free Delivery by ${formattedDate}`);
+    setDeliveryMsg(null);
+    try {
+      const response = await fetch(`/api/delhivery/check-pincode?pincode=${pincode}`);
+      const data = await response.json();
+      if (response.ok && data.is_serviceable) {
+        // Delhivery does not always return raw delivery time from pin-codes API directly,
+        // so we'll simulate a 3-5 days EDD on valid serviceable pin code.
+        const days = Math.floor(Math.random() * 2) + 3;
+        const delDate = new Date();
+        delDate.setDate(delDate.getDate() + days);
+        const formattedDate = delDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+        setDeliveryMsg(`Free Delivery by ${formattedDate}`);
+      } else {
+        setDeliveryMsg('Delivery not available for this pincode.');
+      }
+    } catch (error) {
+      setDeliveryMsg('Error checking pincode.');
+    } finally {
       setCheckingPincode(false);
-    }, 600);
+    }
   };
 
   const handleSizeSelect = (v) => {
@@ -205,8 +217,8 @@ const ProductDetail = () => {
                       key={i}
                       onClick={() => setSelectedImageIndex(i)}
                       className={`flex-shrink-0 w-16 h-20 sm:w-[72px] sm:h-[94px] rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer ${selectedImageIndex === i
-                          ? 'border-[#b13896] shadow-md scale-105 opacity-100'
-                          : 'border-transparent opacity-60 hover:opacity-100'
+                        ? 'border-[#b13896] shadow-md scale-105 opacity-100'
+                        : 'border-transparent opacity-60 hover:opacity-100'
                         }`}
                     >
                       <img src={imgUrl} alt="" className="w-full h-full object-cover" />
@@ -281,8 +293,8 @@ const ProductDetail = () => {
                   onClick={(e) => { e.stopPropagation(); handleAddToWishlist(); }}
                   disabled={wishlistLoading}
                   className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md cursor-pointer shadow-md z-20 ${isInWishlist(product.id)
-                      ? 'bg-[#b13896] text-white'
-                      : 'bg-white/85 text-[#161114] hover:bg-[#b13896] hover:text-white'
+                    ? 'bg-[#b13896] text-white'
+                    : 'bg-white/85 text-[#161114] hover:bg-[#b13896] hover:text-white'
                     }`}
                 >
                   {wishlistLoading ? (
@@ -370,10 +382,10 @@ const ProductDetail = () => {
                         onClick={() => !isOutOfStock && handleSizeSelect(v)}
                         disabled={isOutOfStock}
                         className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all tracking-normal font-sans border relative cursor-pointer ${isSelected
-                            ? 'bg-[#b13896] text-white border-[#b13896] shadow-sm font-bold'
-                            : isOutOfStock
-                              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through'
-                              : 'bg-white text-slate-900 border-slate-200 hover:border-[#b13896] hover:text-[#b13896]'
+                          ? 'bg-[#b13896] text-white border-[#b13896] shadow-sm font-bold'
+                          : isOutOfStock
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through'
+                            : 'bg-white text-slate-900 border-slate-200 hover:border-[#b13896] hover:text-[#b13896]'
                           }`}
                       >
                         {v.size}
@@ -424,10 +436,10 @@ const ProductDetail = () => {
                   onClick={handleAddToCart}
                   disabled={activeStock <= 0 || cartLoading}
                   className={`h-12 rounded-xl text-xs uppercase tracking-widest font-bold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans ${activeStock <= 0
-                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                      : itemInCart
-                        ? 'bg-[#b13896] text-white shadow-[#b13896]/20'
-                        : 'bg-[#161114] text-white hover:bg-[#b13896]'
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : itemInCart
+                      ? 'bg-[#b13896] text-white shadow-[#b13896]/20'
+                      : 'bg-[#161114] text-white hover:bg-[#b13896]'
                     }`}
                 >
                   {cartLoading ? (
@@ -661,10 +673,10 @@ const ProductDetail = () => {
             onClick={handleAddToCart}
             disabled={activeStock <= 0 || cartLoading}
             className={`px-4 sm:px-6 h-11 rounded-xl text-xs uppercase tracking-wider font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans ${activeStock <= 0
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : itemInCart
-                  ? 'bg-[#b13896] text-white'
-                  : 'bg-[#161114] text-white hover:bg-[#b13896]'
+              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              : itemInCart
+                ? 'bg-[#b13896] text-white'
+                : 'bg-[#161114] text-white hover:bg-[#b13896]'
               }`}
           >
             {cartLoading ? <Loader2 size={15} className="animate-spin" /> : <ShoppingBag size={15} />}

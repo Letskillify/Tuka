@@ -252,6 +252,21 @@ const Checkout = () => {
 
     setLoading(true);
 
+    try {
+      // Check Delhivery Serviceability
+      const pinRes = await fetch(`/api/delhivery/check-pincode?pincode=${formData.pincode}`);
+      const pinData = await pinRes.json();
+
+      if (pinRes.ok && pinData && pinData.is_serviceable === false) {
+        setErrorMessage(`Sorry, delivery is not available for the pincode ${formData.pincode}.`);
+        setLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.error("Pincode serviceability check failed:", e);
+      // Safe fallback - continue if the check API fails due to network/token issues
+    }
+
     if (paymentMethod === "cod") {
       await submitOrderToBackend("cod");
       return;

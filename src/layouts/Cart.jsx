@@ -14,7 +14,7 @@ const Cart = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [liveStocks, setLiveStocks] = useState({});
-  
+
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState("");
@@ -50,15 +50,16 @@ const Cart = () => {
         if (size && liveProduct.sizeVariants && liveProduct.sizeVariants.length > 0) {
           const variant = liveProduct.sizeVariants.find((v) => v.size === size);
           actualStock = variant ? Number(variant.stock || 0) : 0;
+        } else if (liveProduct.sizeVariants && liveProduct.sizeVariants.length > 0) {
+          // Robust fallback: if a size-variant item was added without a size, check total variant stock
+          actualStock = liveProduct.sizeVariants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
         } else {
           actualStock = Number(liveProduct.stock || 0);
         }
       }
       newLiveStocks[item.id] = actualStock;
 
-      if (actualStock <= 0) {
-        removeFromCart(item.id);
-      } else if (item.quantity > actualStock) {
+      if (actualStock > 0 && item.quantity > actualStock) {
         updateCartQuantity(item.id, actualStock);
       }
     });
@@ -78,7 +79,7 @@ const Cart = () => {
   const handleApplyCoupon = () => {
     setCouponError("");
     const code = couponCode.toUpperCase().trim();
-    
+
     if (code === "TUKA10") {
       setDiscount(subtotal * 0.1);
       setAppliedCoupon(code);
@@ -113,9 +114,9 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFAF5] font-sans text-[#161114]">
-      
+
       {/* Hero Breadcrumb */}
-      <Breadcrumb 
+      <Breadcrumb
         title="Shopping Cart"
         subtitle={`${items.length} ${items.length === 1 ? 'item' : 'items'} in your collection`}
         bgImage="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1600"
@@ -127,12 +128,12 @@ const Cart = () => {
       />
 
       <div className="max-w-[1280px] mx-auto px-5 sm:px-8 py-8 pb-20">
-        
+
         {/* Continue Shopping Link */}
         <div className="flex items-center justify-between mb-8">
           <p className="text-[13px] text-[#4a3f44]">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
-          <Link 
-            to="/shop?cat=all#products" 
+          <Link
+            to="/shop?cat=all#products"
             className="inline-flex items-center gap-2 text-[12px] font-bold text-[#b13896] hover:text-[#161114] transition-colors"
           >
             <ArrowLeft size={14} />
@@ -148,8 +149,8 @@ const Cart = () => {
             </div>
             <h2 className="font-serif text-2xl text-[#161114] mb-2">Your cart is empty</h2>
             <p className="text-[14px] text-[#4a3f44] mb-8 max-w-sm">Looks like you haven't added any pieces to your collection yet.</p>
-            <Link 
-              to="/shop?cat=all#products" 
+            <Link
+              to="/shop?cat=all#products"
               className="bg-[#161114] text-white px-8 py-3.5 rounded-xl text-[14px] font-bold uppercase tracking-[0.2em] hover:bg-[#b13896] transition-all duration-500"
             >
               Explore Collection
@@ -157,7 +158,7 @@ const Cart = () => {
           </div>
         ) : (
           <div className="flex flex-col lg:flex-row gap-10">
-            
+
             {/* Cart Items */}
             <div className="flex-1 min-w-0">
               {/* Table Header - Desktop */}
@@ -170,7 +171,7 @@ const Cart = () => {
 
               <AnimatePresence mode="popLayout">
                 {items.map((item) => (
-                  <motion.div 
+                  <motion.div
                     layout
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -180,7 +181,7 @@ const Cart = () => {
                   >
                     {/* Product Info */}
                     <div className="flex items-center gap-4">
-                      <Link 
+                      <Link
                         to={`/product/${item.id.split('_')[0]}?ref=cart#product-details`}
                         className="w-20 h-24 sm:w-[72px] sm:h-[90px] rounded-lg overflow-hidden bg-[#f7ebf2] flex-shrink-0 border border-[#e5d5df]/30 hover:border-[#b13896]/30 transition-colors"
                       >
@@ -202,24 +203,30 @@ const Cart = () => {
 
                     {/* Quantity */}
                     <div className="flex items-center justify-center">
-                      <div className="flex items-center border border-[#e5d5df] rounded-lg overflow-hidden bg-white">
-                        <button
-                          onClick={() => updateCartQuantity(item.id, (item.quantity || 1) - 1)}
-                          className="w-9 h-9 flex items-center justify-center text-[#161114] hover:bg-[#f7ebf2] transition-colors"
-                        >
-                          <Minus size={12} />
-                        </button>
-                        <span className="w-9 text-center font-bold text-[#161114] text-[13px]">
-                          {item.quantity || 1}
+                      {(liveStocks[item.id] !== undefined && liveStocks[item.id] <= 0) ? (
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 whitespace-nowrap">
+                          Out of Stock
                         </span>
-                        <button 
-                          onClick={() => updateCartQuantity(item.id, (item.quantity || 1) + 1)}
-                          disabled={(item.quantity || 1) >= Math.min(10, liveStocks[item.id] ?? item.stock ?? 1)}
-                          className="w-9 h-9 flex items-center justify-center text-[#161114] hover:bg-[#f7ebf2] transition-colors disabled:opacity-20"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
+                      ) : (
+                        <div className="flex items-center border border-[#e5d5df] rounded-lg overflow-hidden bg-white">
+                          <button
+                            onClick={() => updateCartQuantity(item.id, (item.quantity || 1) - 1)}
+                            className="w-9 h-9 flex items-center justify-center text-[#161114] hover:bg-[#f7ebf2] transition-colors"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-9 text-center font-bold text-[#161114] text-[13px]">
+                            {item.quantity || 1}
+                          </span>
+                          <button
+                            onClick={() => updateCartQuantity(item.id, (item.quantity || 1) + 1)}
+                            disabled={(item.quantity || 1) >= Math.min(10, liveStocks[item.id] ?? item.stock ?? 1)}
+                            className="w-9 h-9 flex items-center justify-center text-[#161114] hover:bg-[#f7ebf2] transition-colors disabled:opacity-20"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Line Total */}
@@ -231,7 +238,7 @@ const Cart = () => {
 
                     {/* Remove */}
                     <div className="flex justify-end">
-                      <button 
+                      <button
                         onClick={() => removeItem(item.id)}
                         className="p-1.5 text-[#4a3f44]/40 hover:text-[#b13896] transition-colors"
                       >
@@ -246,7 +253,7 @@ const Cart = () => {
             {/* Order Summary Sidebar */}
             <aside className="w-full lg:w-[380px] flex-shrink-0">
               <div className="lg:sticky lg:top-24 bg-white rounded-2xl border border-[#e5d5df]/30 overflow-hidden shadow-sm">
-                
+
                 {/* Summary Header */}
                 <div className="px-6 py-5 border-b border-[#e5d5df]/20">
                   <h2 className="text-[15px] font-bold text-[#161114] uppercase tracking-wider">Order Summary</h2>
@@ -284,7 +291,7 @@ const Cart = () => {
                   {/* Coupon Input */}
                   <div className="pt-1">
                     {!showCoupon && !appliedCoupon ? (
-                      <button 
+                      <button
                         onClick={() => setShowCoupon(true)}
                         className="flex items-center gap-2 text-[12px] font-bold text-[#b13896] hover:text-[#161114] transition-colors"
                       >
@@ -294,15 +301,15 @@ const Cart = () => {
                     ) : !appliedCoupon ? (
                       <div className="space-y-2">
                         <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            placeholder="Enter code" 
+                          <input
+                            type="text"
+                            placeholder="Enter code"
                             className="flex-1 border border-[#e5d5df] rounded-lg px-4 py-2.5 text-[12px] font-bold tracking-wider text-[#161114] outline-none focus:border-[#b13896] transition-all uppercase placeholder:text-[#4a3f44]/30 placeholder:normal-case bg-[#FDFAF5]"
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
                           />
-                          <button 
+                          <button
                             onClick={handleApplyCoupon}
                             className="bg-[#161114] text-white px-5 py-2.5 rounded-lg text-[14px] font-bold uppercase tracking-wider hover:bg-[#b13896] transition-all"
                           >
@@ -335,13 +342,18 @@ const Cart = () => {
                   </div>
 
                   {/* Checkout Button */}
-                  <button 
+                  <button
                     onClick={() => navigate("/checkout")}
-                    disabled={items.length === 0}
+                    disabled={items.length === 0 || items.some(i => liveStocks[i.id] !== undefined && liveStocks[i.id] <= 0)}
                     className="w-full bg-[#161114] text-white py-4 rounded-xl text-[14px] font-bold uppercase tracking-[0.25em] hover:bg-[#b13896] transition-all duration-500 disabled:opacity-40 disabled:cursor-not-allowed mt-2"
                   >
                     Proceed to Checkout
                   </button>
+                  {items.some(i => liveStocks[i.id] !== undefined && liveStocks[i.id] <= 0) && (
+                    <p className="text-center text-[12px] font-semibold text-rose-500 mt-2">
+                      Please remove out-of-stock items to proceed.
+                    </p>
+                  )}
 
                   {/* Trust */}
                   <div className="flex items-center justify-center gap-6 pt-3">
