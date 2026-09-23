@@ -1,4 +1,5 @@
-import { Cashfree } from "cashfree-pg-sdk-nodejs";
+import cashfreePkg from "cashfree-pg-sdk-nodejs";
+const { Cashfree } = cashfreePkg;
 import { clientDb, adminDb, doc, getDoc } from "../_lib/firebaseServer.js";
 
 const getDb = () => clientDb;
