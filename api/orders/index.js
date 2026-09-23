@@ -180,7 +180,8 @@ export default async function handler(req, res) {
 
       if (appId && secretKey && !appId.startsWith("YOUR_") && cashfreeOrderId) {
         // Authenticate Cashfree SDK
-        const { Cashfree } = await import("cashfree-pg-sdk-nodejs");
+        const cashfreePkg = await import("cashfree-pg-sdk-nodejs");
+        const { Cashfree } = cashfreePkg.default || cashfreePkg;
         Cashfree.XClientId = appId;
         Cashfree.XClientSecret = secretKey;
         Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; // Change to PRODUCTION for live
