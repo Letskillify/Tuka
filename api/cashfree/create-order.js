@@ -81,6 +81,7 @@ export default async function handler(req, res) {
 
         const appId = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
         const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
+        const envMode = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "SANDBOX";
 
         if (!appId || !secretKey || appId.startsWith("YOUR_")) {
             // Dev mode fallback
@@ -89,22 +90,33 @@ export default async function handler(req, res) {
                 order_id: `order_mock_${Date.now()}`,
                 amount: finalTotal,
                 currency: "INR",
-                subtotal: calculatedSubtotal, discount, total: finalTotal
+                subtotal: calculatedSubtotal, 
+                discount, 
+                total: finalTotal
             });
         }
 
         Cashfree.XClientId = appId;
         Cashfree.XClientSecret = secretKey;
-        Cashfree.XEnvironment = Cashfree.Environment.SANDBOX;
+        Cashfree.XEnvironment = envMode.toUpperCase() === "PRODUCTION"
+            ? Cashfree.Environment.PRODUCTION 
+            : Cashfree.Environment.SANDBOX;
+
+        // Clean customer ID and phone number for Cashfree API validation requirements
+        const rawCustomerId = customerDetails?.id || customerDetails?.email || "guest_" + Date.now();
+        const sanitizedCustId = String(rawCustomerId).replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 45);
+        
+        const rawPhone = String(customerDetails?.phone || "").replace(/\D/g, "");
+        const sanitizedPhone = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9999999999";
 
         const request = {
             order_amount: finalTotal,
             order_currency: "INR",
             order_id: "ORD_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
             customer_details: {
-                customer_id: customerDetails?.id || "guest",
+                customer_id: sanitizedCustId,
                 customer_email: customerDetails?.email || "guest@tuka.com",
-                customer_phone: customerDetails?.phone || "9999999999"
+                customer_phone: sanitizedPhone
             }
         };
 

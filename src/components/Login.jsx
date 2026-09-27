@@ -24,11 +24,16 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const getRedirectUrl = () => {
+    const redirectParam = new URLSearchParams(location.search).get("redirect");
+    if (!redirectParam) return "/account";
+    return redirectParam.startsWith("/") ? redirectParam : `/${redirectParam}`;
+  };
+
   // Redirect to account if already authenticated
   useEffect(() => {
     if (user) {
-      const redirectUrl = new URLSearchParams(location.search).get("redirect") || "/account";
-      navigate(redirectUrl, { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     }
   }, [user, navigate, location.search]);
 
@@ -132,7 +137,7 @@ const Login = () => {
         setSuccessMsg("Email verified! You can now optionally create a password for your account.");
       } else {
         setSuccessMsg("Signed in successfully!");
-        navigate("/account", { replace: true });
+        navigate(getRedirectUrl(), { replace: true });
       }
     } catch (err) {
       setError(err.message || "Invalid or expired verification code.");
@@ -158,7 +163,7 @@ const Login = () => {
     try {
       await setAccountPassword(password);
       setSuccessMsg("Password created successfully!");
-      navigate("/account", { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     } catch (err) {
       setError(err.message || "Failed to save password.");
     } finally {
@@ -173,7 +178,7 @@ const Login = () => {
     setLoading(true);
     try {
       await loginWithPassword(email.trim().toLowerCase(), password);
-      navigate("/account", { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     } catch (err) {
       setError(err.message || "Invalid email or password.");
     } finally {
@@ -187,7 +192,7 @@ const Login = () => {
     setLoading(true);
     try {
       await loginWithGoogle();
-      navigate("/account", { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     } catch (err) {
       setError(err.message || "Google authentication failed.");
     } finally {
@@ -508,7 +513,7 @@ const Login = () => {
                     <div className="flex gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => navigate("/account")}
+                        onClick={() => navigate(getRedirectUrl(), { replace: true })}
                         className="flex-1 py-3.5 border border-[#e6ded8] rounded-2xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-[#F8F4EF]"
                       >
                         Skip
@@ -547,9 +552,14 @@ const Login = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#332b26] ml-1 block">
-                    PASSWORD
-                  </label>
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#332b26] block">
+                      PASSWORD
+                    </label>
+                    <Link to="/forgot-password" className="text-[11px] font-semibold text-[#b13896] hover:underline">
+                      Forgot Password?
+                    </Link>
+                  </div>
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a3948b] group-focus-within:text-[#b13896]" size={18} />
                     <input

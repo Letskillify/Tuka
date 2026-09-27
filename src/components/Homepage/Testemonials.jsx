@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, ChevronLeft, ChevronRight, Quote, ShieldCheck, Heart, Sparkles } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -8,7 +8,10 @@ import SectionHeader from './SectionHeader';
 import 'swiper/css';
 import 'swiper/css/navigation';
 
-const reviews = [
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '../Firebase';
+
+const fallbackReviews = [
   {
     name: "Priya Sharma",
     location: "Mumbai",
@@ -58,8 +61,31 @@ const SERIF = "'Playfair Display', Georgia, serif";
 const SANS = "'Plus Jakarta Sans', 'Inter', sans-serif";
 
 const TestimonialSection = () => {
+  const [reviewsList, setReviewsList] = useState(fallbackReviews);
   const prevRef = useRef(null);
   const nextRef = useRef(null);
+
+  useEffect(() => {
+    const q = query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(10));
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        const fetched = snap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            name: data.userName || "Verified Buyer",
+            location: data.location || "India",
+            purchase: data.productName || "Bengal Handloom",
+            quote: data.comment || data.title,
+            rating: data.rating || 5,
+            verified: true
+          };
+        });
+        setReviewsList(fetched);
+      }
+    }, (err) => console.log("Reviews listener:", err));
+
+    return () => unsub();
+  }, []);
 
   return (
     <section className="py-10 lg:py-16 relative overflow-hidden selection:bg-[#b13896] selection:text-white" style={{ background: LIGHT_BG }}>
@@ -139,7 +165,7 @@ const TestimonialSection = () => {
             }}
             className="!overflow-visible"
           >
-            {reviews.map((review, index) => (
+            {reviewsList.map((review, index) => (
               <SwiperSlide key={index}>
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}

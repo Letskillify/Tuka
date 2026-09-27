@@ -13,6 +13,7 @@ const Admin = lazy(() => import("./pages/Admin/Admin"));
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin/SuperAdmin"));
 const Login = lazy(() => import("./components/Login"));
 const Signup = lazy(() => import("./components/Signup"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Cart = lazy(() => import("./layouts/Cart"));
 const Wishlist = lazy(() => import("./components/Wishlist"));
 const ProductDetail = lazy(() => import("./layouts/ProductDetail"));
@@ -37,7 +38,8 @@ const AppRoutes = () => {
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/super") ||
     location.pathname === "/login" ||
-    location.pathname === "/signup";
+    location.pathname === "/signup" ||
+    location.pathname === "/forgot-password";
 
   return (
     <>
@@ -50,6 +52,7 @@ const AppRoutes = () => {
           <Route path="/super" element={<SuperAdmin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-success" element={<OrderSuccess />} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "./useAuth";
 import { 
   Mail, 
@@ -23,13 +23,20 @@ const MAGENTA = '#b13896';
 const Signup = () => {
   const { sendOtp, verifyOtp, setAccountPassword, loginWithGoogle, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const getRedirectUrl = () => {
+    const redirectParam = new URLSearchParams(location.search).get("redirect");
+    if (!redirectParam) return "/account";
+    return redirectParam.startsWith("/") ? redirectParam : `/${redirectParam}`;
+  };
 
   // Redirect to account if already authenticated
   useEffect(() => {
     if (user) {
-      navigate("/account", { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, location.search]);
 
   // Auth Modes: 'otp' | 'password'
   const [authMode, setAuthMode] = useState("otp");
@@ -137,7 +144,7 @@ const Signup = () => {
     try {
       await setAccountPassword(password);
       setSuccessMsg("Account created successfully!");
-      navigate("/account", { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     } catch (err) {
       setError(err.message || "Failed to set account password.");
     } finally {
@@ -151,7 +158,7 @@ const Signup = () => {
     setLoading(true);
     try {
       await loginWithGoogle();
-      navigate("/account", { replace: true });
+      navigate(getRedirectUrl(), { replace: true });
     } catch (err) {
       setError(err.message || "Google authentication failed.");
     } finally {
@@ -455,7 +462,7 @@ const Signup = () => {
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => navigate("/account")} className="flex-1 py-3.5 border border-[#e6ded8] rounded-2xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-[#F8F4EF]">
+                  <button type="button" onClick={() => navigate(getRedirectUrl(), { replace: true })} className="flex-1 py-3.5 border border-[#e6ded8] rounded-2xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-[#F8F4EF]">
                     Skip
                   </button>
                   <button type="submit" disabled={loading} className="flex-1 py-3.5 rounded-2xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider shadow-md flex items-center justify-center gap-2">
