@@ -15,7 +15,7 @@ const NewsletterBar = () => {
           <div className="space-y-1">
             <h3 className="text-xl lg:text-2xl font-serif text-white italic">Be the first to know</h3>
             <p className="text-[14px] lg:text-[14px] tracking-[0.2em] font-bold text-white/70 uppercase">
-              Exclusive offers, new arrivals & style updates straight to your inbox.
+              Exclusive offers, new in & style updates straight to your inbox.
             </p>
           </div>
         </div>

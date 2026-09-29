@@ -16,7 +16,7 @@ const sareeData = [
     title: 'Dhaniakhali Saree',
     subtitle: 'The Firm & Crisp Heritage of Hooghly',
     origin: 'Hooghly District, West Bengal',
-    giTag: 'GI Certified Origin',
+    giTag: 'Handloom Mark',
     image: 'img/d.jpeg',
     tagline: 'DENSE WEAVE & KANCHHA BORDER',
     story: 'Meticulously handwoven on traditional pit looms with 100s count combed cotton yarn, featuring iconic Kanchha contrast borders and a crisp silhouette that naturally softens with every wash.',
@@ -184,13 +184,6 @@ const SareeShowcase = () => {
                 }`}
                 style={{ fontFamily: SANS }}
               >
-                <span
-                  className={`text-[13px] font-bold ${
-                    isActive ? 'text-[#f4cfeb]' : 'text-[#b13896]'
-                  }`}
-                >
-                  {item.number}
-                </span>
                 {item.title}
               </a>
             );
@@ -241,13 +234,6 @@ const SareeShowcase = () => {
                             {item.giTag}
                           </span>
                         </div>
-
-                        <span
-                          className="text-[13px] tracking-wider text-white font-bold px-3 py-1 rounded-full backdrop-blur-md bg-[#b13896]/80 border border-white/20 shadow-sm"
-                          style={{ fontFamily: SANS }}
-                        >
-                          {item.number}
-                        </span>
                       </div>
 
                       {/* Bottom Overlay Info on Image */}

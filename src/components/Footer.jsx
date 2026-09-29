@@ -23,11 +23,10 @@ const Footer = () => {
     {
       title: "COLLECTIONS",
       links: [
-        { name: "Hindshree Saree", href: "/shop?q=Hindshree#products" },
-        { name: "Designer Blouses", href: "/shop?cat=Designer%20Blouse#products" },
-        { name: "Boutique Collection", href: "/shop?cat=Boutique%20Collection#products" },
-        { name: "Kantha Stitch Saree", href: "/shop?q=Kantha#products" },
-        { name: "Tussar Silk Saree", href: "/shop?q=Tussar#products" },
+        { name: "Hindshree Collection", href: "/shop?q=Hindshree#products" },
+        { name: "Dhaniakhali Saree", href: "/shop?q=Dhaniakhali#products" },
+        { name: "Begumpuri Saree", href: "/shop?q=Begumpuri#products" },
+        { name: "Shantipuri Saree", href: "/shop?q=Shantipuri#products" },
       ]
     },
     {

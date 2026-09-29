@@ -14,11 +14,13 @@ import CloudinaryImageLibrary from "./CloudinaryImageLibrary";
 import { useCatalogData } from "./useCatalogData";
 
 export const ProductForm = ({ onSuccess }) => {
-  const { categories, subCategories, brands, attributes: catalogAttributes, addCategory, addSubCategory, addAttribute } = useCatalogData();
+  const { categories, subCategories, brands, attributes: catalogAttributes, addCategory, addSubCategory, addAttribute, addBrand } = useCatalogData();
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatVal, setNewCatVal] = useState("");
   const [showAddSubCatInput, setShowAddSubCatInput] = useState(false);
   const [newSubCatVal, setNewSubCatVal] = useState("");
+  const [showAddBrandInput, setShowAddBrandInput] = useState(false);
+  const [newBrandVal, setNewBrandVal] = useState("");
 
   const [selectedAttributes, setSelectedAttributes] = useState([]);
   const [customAttrInput, setCustomAttrInput] = useState("");
@@ -125,6 +127,9 @@ export const ProductForm = ({ onSuccess }) => {
         image: uploadUrls[0] || "",
         createdAt: serverTimestamp(),
       };
+      if (values.brand) {
+        await addBrand(values.brand);
+      }
       await addDoc(collection(db, "products"), docData);
       reset();
       setSelectedCloudinaryImages([]);
@@ -255,15 +260,50 @@ export const ProductForm = ({ onSuccess }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Brand</label>
-          <select
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm bg-white"
-            {...register("brand")}
-          >
-            {brands.map(br => (
-              <option key={br} value={br}>{br}</option>
-            ))}
-          </select>
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Brand</label>
+            <button
+              type="button"
+              onClick={() => setShowAddBrandInput(!showAddBrandInput)}
+              className="text-[11px] text-[#b13896] font-bold hover:underline"
+            >
+              + Add New
+            </button>
+          </div>
+          {showAddBrandInput ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="New Brand Name"
+                value={newBrandVal}
+                onChange={(e) => setNewBrandVal(e.target.value)}
+                className="w-full rounded-xl border border-[#b13896] px-3 py-2 text-xs outline-none"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  if (newBrandVal.trim()) {
+                    await addBrand(newBrandVal);
+                    setValue("brand", newBrandVal.trim());
+                    setNewBrandVal("");
+                    setShowAddBrandInput(false);
+                  }
+                }}
+                className="px-3 py-2 bg-[#b13896] text-white text-xs font-bold rounded-xl"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <select
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm bg-white"
+              {...register("brand")}
+            >
+              {brands.map(br => (
+                <option key={br} value={br}>{br}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Material / Fabric</label>
@@ -519,7 +559,7 @@ export const ProductForm = ({ onSuccess }) => {
 };
 
 export const EditProductForm = ({ product, onSuccess }) => {
-  const { categories, getSubcategoriesForCategory, brands } = useCatalogData();
+  const { categories, getSubcategoriesForCategory, brands, addBrand } = useCatalogData();
   const { register, handleSubmit, reset, watch, formState } = useForm({
     defaultValues: {
       product_no: product?.product_no || "",
@@ -636,6 +676,9 @@ export const EditProductForm = ({ product, onSuccess }) => {
         image: uploadUrls[0] || product.image || "",
       };
 
+      if (values.brand) {
+        await addBrand(values.brand);
+      }
       await updateDoc(doc(db, "products", product.id), updateData);
       if (onSuccess) {
         onSuccess();
@@ -699,7 +742,7 @@ export const EditProductForm = ({ product, onSuccess }) => {
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm bg-white"
             {...register("brand")}
           >
-            {DEFAULT_BRANDS.map(br => (
+            {brands.map(br => (
               <option key={br} value={br}>{br}</option>
             ))}
           </select>

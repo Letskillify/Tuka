@@ -7,11 +7,13 @@ import ProductMediaPicker from "./ProductMediaPicker";
 import { useCatalogData } from "./useCatalogData";
 
 const ProductEditor = ({ product, onCancel, onSuccess }) => {
-  const { categories, subCategories, brands, attributes: catalogAttributes, addCategory, addSubCategory, addAttribute, getSubcategoriesForCategory } = useCatalogData();
+  const { categories, subCategories, brands, attributes: catalogAttributes, addCategory, addSubCategory, addAttribute, addBrand, getSubcategoriesForCategory } = useCatalogData();
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatVal, setNewCatVal] = useState("");
   const [showAddSubCatInput, setShowAddSubCatInput] = useState(false);
   const [newSubCatVal, setNewSubCatVal] = useState("");
+  const [showAddBrandInput, setShowAddBrandInput] = useState(false);
+  const [newBrandVal, setNewBrandVal] = useState("");
 
   const [selectedAttributes, setSelectedAttributes] = useState([]);
   const [customAttrInput, setCustomAttrInput] = useState("");
@@ -194,12 +196,15 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
         featuredProduct: !!values.featuredProduct,
       };
 
-      // Auto-sync new category and subcategory to Firestore
+      // Auto-sync new category, subcategory, and brand to Firestore
       if (values.category) {
         await addCategory(values.category);
       }
       if (values.subCategory) {
         await addSubCategory(values.subCategory, values.category);
+      }
+      if (values.brand) {
+        await addBrand(values.brand);
       }
 
       if (product?.id) {
@@ -281,17 +286,52 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
                 {errors.name && <span className="text-xs text-red-500 mt-1 block">Name is required</span>}
               </label>
 
-              <label className="block">
-                <span className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-widest block">Brand</span>
-                <select
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[14px] bg-white outline-none focus:border-[#b13896] transition-colors"
-                  {...register("brand")}
-                >
-                  {brands.map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </label>
+              <div className="block">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Brand</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddBrandInput(!showAddBrandInput)}
+                    className="text-[11px] text-[#b13896] font-bold hover:underline flex items-center gap-1"
+                  >
+                    + Add New
+                  </button>
+                </div>
+                {showAddBrandInput ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="New Brand Name"
+                      value={newBrandVal}
+                      onChange={(e) => setNewBrandVal(e.target.value)}
+                      className="w-full rounded-xl border border-[#b13896] px-3 py-2 text-xs outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (newBrandVal.trim()) {
+                          await addBrand(newBrandVal);
+                          setValue("brand", newBrandVal.trim());
+                          setNewBrandVal("");
+                          setShowAddBrandInput(false);
+                        }
+                      }}
+                      className="px-3 py-2 bg-[#b13896] text-white text-xs font-bold rounded-xl"
+                    >
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[14px] bg-white outline-none focus:border-[#b13896] transition-colors"
+                    {...register("brand")}
+                  >
+                    {brands.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

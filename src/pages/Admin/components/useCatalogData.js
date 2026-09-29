@@ -19,7 +19,7 @@ export const DEFAULT_CATEGORIES = [
   "Kurtis",
   "Stoles",
   "Dress material",
-  "New Arrivals",
+  "New In",
 ];
 
 export const DEFAULT_SUBCATEGORIES_DATA = [
@@ -38,7 +38,7 @@ export const DEFAULT_ATTRIBUTES = [
   "Hot",
   "Sale",
   "Trending",
-  "New Arrival",
+  "New In",
   "Exclusive",
   "Handmade",
   "Limited Edition",
@@ -288,6 +288,21 @@ export const useCatalogData = () => {
     return matching.length > 0 ? matching.map((s) => s.name) : subCategories;
   };
 
+  const addBrand = async (name, description = "") => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const exists = brands.some((b) => b.toLowerCase() === trimmed.toLowerCase());
+    if (!exists) {
+      await addDoc(collection(db, "brands"), {
+        name: trimmed,
+        description: description.trim(),
+        status: "Active",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  };
+
   return {
     categories,
     categoryObjects,
@@ -303,6 +318,7 @@ export const useCatalogData = () => {
     updateSubCategory,
     deleteSubCategory,
     addAttribute,
+    addBrand,
     getSubcategoriesForCategory,
   };
 };

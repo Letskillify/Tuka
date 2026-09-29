@@ -39,6 +39,7 @@ import {
   Tags,
   Layers,
   Layers3,
+  Award,
   Globe2,
   TicketPercent,
   Star,
@@ -274,8 +275,8 @@ const Admin = () => {
         return <CategorySubcategoryManager initialTab="Subcategories" />;
       case "Collections":
         return <CatalogManager type="Collections" />;
-// case "Countries":
-//   return <CatalogManager type="Countries" />;
+      case "Brands":
+        return <CatalogManager type="Brands" />;
       case "Attributes":
         return <CatalogManager type="Attributes" />;
       case "Users":
@@ -376,6 +377,7 @@ const Admin = () => {
           ["Categories", Layers3, "Categories"],
           ["Sub Categories", Layers3, "SubCategories"],
           ["Collections", Layers3, "Collections"],
+          ["Brands Manager", Award, "Brands"],
           ["Attributes", Tags, "Attributes"],
           ["Media", Images, "Media"],
         ].map(([title, Icon, target]) => (

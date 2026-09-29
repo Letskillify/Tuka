@@ -37,7 +37,7 @@ const Shop = () => {
     'Handloom Saree',
     'Designer Blouse',
     'Boutique Collection',
-    'New Arrivals'
+    'New In'
   ];
 
   // Sync state from URL search parameters
@@ -197,31 +197,74 @@ const Shop = () => {
 
   const filteredProducts = products.filter(p => {
     const term = searchTerm.toLowerCase();
+    const prodAttrs = Array.isArray(p.attributes)
+      ? p.attributes.map(a => String(a).toLowerCase())
+      : typeof p.attributes === 'string'
+      ? [p.attributes.toLowerCase()]
+      : [];
+    const prodTags = Array.isArray(p.tags)
+      ? p.tags.map(t => String(t).toLowerCase())
+      : typeof p.tags === 'string'
+      ? [p.tags.toLowerCase()]
+      : [];
+
     const matchesSearch =
       !searchTerm ||
       (p.name || '').toLowerCase().includes(term) ||
       (p.subCategory || '').toLowerCase().includes(term) ||
       (p.description || '').toLowerCase().includes(term) ||
-      (p.tags || []).some(t => String(t).toLowerCase().includes(term));
+      prodTags.some(t => t.includes(term)) ||
+      prodAttrs.some(a => a.includes(term));
 
     let matchesCategory = false;
-    if (selectedCategory.toLowerCase() === 'all') {
+    const selectedCatLower = selectedCategory.toLowerCase().trim();
+    if (selectedCatLower === 'all') {
       matchesCategory = true;
     } else {
-      const targetCat = selectedCategory.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const prodCat = (p.category || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const prodSubCat = (p.subCategory || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const targetCat = selectedCatLower.replace(/[^a-z0-9]/g, '');
+      const prodCat = (p.category || '').toLowerCase().trim();
+      const prodCatClean = prodCat.replace(/[^a-z0-9]/g, '');
+
+      const prodSubCat = (p.subCategory || '').toLowerCase().trim();
+      const prodSubCatClean = prodSubCat.replace(/[^a-z0-9]/g, '');
+
       const prodName = (p.name || '').toLowerCase();
       const prodDesc = (p.description || '').toLowerCase();
-      const prodTags = (p.tags || []).map(t => String(t).toLowerCase());
 
-      matchesCategory = prodCat.includes(targetCat) ||
-        targetCat.includes(prodCat) ||
-        prodSubCat.includes(targetCat) ||
-        targetCat.includes(prodSubCat) ||
-        prodName.includes(selectedCategory.toLowerCase()) ||
-        prodDesc.includes(selectedCategory.toLowerCase()) ||
-        prodTags.some(t => t.includes(selectedCategory.toLowerCase()));
+      const isNewInFilter =
+        targetCat === 'newin' ||
+        targetCat === 'newarrivals' ||
+        targetCat === 'newarrival' ||
+        selectedCatLower.includes('new in') ||
+        selectedCatLower.includes('new arrival');
+
+      if (isNewInFilter) {
+        matchesCategory =
+          prodCatClean.includes('newin') ||
+          prodCatClean.includes('newarrival') ||
+          prodSubCatClean.includes('newin') ||
+          prodSubCatClean.includes('newarrival') ||
+          prodAttrs.some(a => {
+            const cleanA = a.replace(/[^a-z0-9]/g, '');
+            return cleanA.includes('newin') || cleanA.includes('newarrival') || cleanA === 'new';
+          }) ||
+          prodTags.some(t => {
+            const cleanT = t.replace(/[^a-z0-9]/g, '');
+            return cleanT.includes('newin') || cleanT.includes('newarrival');
+          }) ||
+          prodName.includes('new in') ||
+          prodName.includes('new arrival');
+      } else {
+        matchesCategory =
+          prodCat.includes(targetCat) ||
+          (prodCatClean && targetCat.includes(prodCatClean)) ||
+          prodSubCat.includes(targetCat) ||
+          (prodSubCatClean && targetCat.includes(prodSubCatClean)) ||
+          prodName.includes(selectedCatLower) ||
+          prodDesc.includes(selectedCatLower) ||
+          prodTags.some(t => t.includes(selectedCatLower)) ||
+          prodAttrs.some(a => a.includes(selectedCatLower));
+      }
     }
 
     const itemPrice = Number(p.price || 0);

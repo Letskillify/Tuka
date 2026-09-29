@@ -256,6 +256,19 @@ const LuxuryHeader = () => {
       'blouse',
       'stoles',
       'stole',
+      'new in',
+      'new arrivals',
+      'new arrival',
+      'dhaniakhali',
+      'dhaniakhali saree',
+      'begumpuri',
+      'begumpuri saree',
+      'shantipuri',
+      'shantipuri saree',
+      'hindshree',
+      'hindshree saree',
+      'jamdani',
+      'jamdani saree',
     ];
 
     const categoriesList = Array.from(categoryMap.values()).filter(
@@ -283,76 +296,79 @@ const LuxuryHeader = () => {
       'Khadi Blouse',
     ];
 
-    const links = categoriesList.map((catName) => {
-      const catKey = catName.toLowerCase();
-      const subMap = new Set();
+    const links = [
+      { name: 'New In', href: '/shop?cat=New In#products' },
+      ...categoriesList.map((catName) => {
+        const catKey = catName.toLowerCase();
+        const subMap = new Set();
 
-      if (catKey.includes('saree')) {
-        defaultSareeSubcategories.forEach((s) => subMap.add(s));
-      } else if (catKey.includes('blouse')) {
-        defaultBlouseSubcategories.forEach((s) => subMap.add(s));
-      }
+        if (catKey.includes('saree')) {
+          defaultSareeSubcategories.forEach((s) => subMap.add(s));
+        } else if (catKey.includes('blouse')) {
+          defaultBlouseSubcategories.forEach((s) => subMap.add(s));
+        }
 
-      // Merge subcategories from Firebase 'subcategories' collection
-      dbSubcategories.forEach((s) => {
-        if (s.name && s.status !== 'Inactive') {
-          const subCatParent = (s.category || '').toLowerCase();
-          if (
-            subCatParent === catKey ||
-            (subCatParent === '' && catKey.includes('saree')) ||
-            (subCatParent === 'saree' && catKey.includes('saree'))
-          ) {
-            subMap.add(s.name);
+        // Merge subcategories from Firebase 'subcategories' collection
+        dbSubcategories.forEach((s) => {
+          if (s.name && s.status !== 'Inactive') {
+            const subCatParent = (s.category || '').toLowerCase();
+            if (
+              subCatParent === catKey ||
+              (subCatParent === '' && catKey.includes('saree')) ||
+              (subCatParent === 'saree' && catKey.includes('saree'))
+            ) {
+              subMap.add(s.name);
+            }
+          }
+        });
+
+        // Merge subcategories from uploaded products
+        dbProducts.forEach((p) => {
+          if (p.subCategory) {
+            const prodCat = (p.category || '').toLowerCase();
+            if (
+              prodCat === catKey ||
+              (!prodCat && catKey.includes('saree'))
+            ) {
+              subMap.add(p.subCategory);
+            }
+          }
+        });
+
+        const subList = catKey.includes('saree')
+          ? defaultSareeSubcategories
+          : Array.from(subMap);
+
+        const sections = [];
+        if (subList.length > 0) {
+          const chunkSize = Math.max(4, Math.ceil(subList.length / 3));
+          for (let i = 0; i < subList.length; i += chunkSize) {
+            const chunk = subList.slice(i, i + chunkSize);
+            const icons = ['🪷', '✧', '✿', '◇', '✦'];
+            const icon = icons[sections.length % icons.length];
+            sections.push({
+              title: sections.length === 0 ? `${catName} Subcategories` : `More ${catName} Weaves`,
+              icon,
+              items: chunk,
+            });
           }
         }
-      });
 
-      // Merge subcategories from uploaded products
-      dbProducts.forEach((p) => {
-        if (p.subCategory) {
-          const prodCat = (p.category || '').toLowerCase();
-          if (
-            prodCat === catKey ||
-            (!prodCat && catKey.includes('saree'))
-          ) {
-            subMap.add(p.subCategory);
-          }
-        }
-      });
+        const img = categoryPromoImages[catKey] || 'https://images.unsplash.com/photo-1610030470298-40e1eaccf77d?auto=format&fit=crop&q=80&w=800';
 
-      const subList = catKey.includes('saree')
-        ? defaultSareeSubcategories
-        : Array.from(subMap);
-
-      const sections = [];
-      if (subList.length > 0) {
-        const chunkSize = Math.max(4, Math.ceil(subList.length / 3));
-        for (let i = 0; i < subList.length; i += chunkSize) {
-          const chunk = subList.slice(i, i + chunkSize);
-          const icons = ['🪷', '✧', '✿', '◇', '✦'];
-          const icon = icons[sections.length % icons.length];
-          sections.push({
-            title: sections.length === 0 ? `${catName} Subcategories` : `More ${catName} Weaves`,
-            icon,
-            items: chunk,
-          });
-        }
-      }
-
-      const img = categoryPromoImages[catKey] || 'https://images.unsplash.com/photo-1610030470298-40e1eaccf77d?auto=format&fit=crop&q=80&w=800';
-
-      return {
-        name: catName,
-        href: `/shop?cat=${encodeURIComponent(catName)}#products`,
-        subcategories: subList,
-        megaMenu: sections.length > 0 ? {
-          sections,
-          image: img,
-          tagline: 'TERRITORY OF WEAVES',
-          heading: catName,
-        } : null,
-      };
-    });
+        return {
+          name: catName,
+          href: `/shop?cat=${encodeURIComponent(catName)}#products`,
+          subcategories: subList,
+          megaMenu: sections.length > 0 ? {
+            sections,
+            image: img,
+            tagline: 'TERRITORY OF WEAVES',
+            heading: catName,
+          } : null,
+        };
+      })
+    ];
 
     links.push({ name: 'Our Story', href: '/about?ref=header#story' });
     links.push({ name: 'Contact us', href: '/contact?ref=header#reach-us' });
@@ -581,7 +597,7 @@ const LuxuryHeader = () => {
 
               {/* Category Filter Pills */}
               <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 scrollbar-hide">
-                {['All', 'Handloom Saree', 'Saree'].map((cat) => {
+                {['All', 'New In', 'Handloom Saree', 'Saree'].map((cat) => {
                   const isActive = searchCategory === cat;
                   return (
                     <button
