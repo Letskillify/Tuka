@@ -107,10 +107,33 @@ const PrivacyPolicy = () => {
                 In addition, we limit access to your personal data to those employees and agents who have a business need to know.
               </p>
             </section>
+
+            <section className="space-y-8 group">
+              <div className="flex items-center gap-5 text-[#b13896]">
+                <div className="w-12 h-12 rounded-2xl bg-[#b13896]/5 flex items-center justify-center shadow-sm group-hover:bg-[#b13896] group-hover:text-white transition-all duration-500">
+                  <ShieldCheck size={22} />
+                </div>
+                <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">05. Contact & Legal Entity Details</h2>
+              </div>
+              <p className="font-serif">
+                This website is operated under the registered legal entity: <strong className="text-[#161114]">DIPANWITA PATRA</strong> (Brand: House of Tuka). For any privacy concerns, data deletion requests, or legal queries, please reach out to us at:
+              </p>
+              <ul className="space-y-3 font-serif">
+                <li className="flex gap-3">
+                  <strong className="text-[#161114]">Legal Name:</strong> DIPANWITA PATRA
+                </li>
+                <li className="flex gap-3">
+                  <strong className="text-[#161114]">Support Email:</strong> <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] underline">tukasupport@gmail.com</a>
+                </li>
+                <li className="flex gap-3">
+                  <strong className="text-[#161114]">Phone:</strong> <a href="tel:+919831133937" className="text-[#b13896] underline">+91 9831133937</a>
+                </li>
+              </ul>
+            </section>
           </div>
 
           <div className="mt-32 pt-16 border-t border-[#e5d5df]/20 text-center">
-            <p className="text-[14px] tracking-[0.5em] uppercase text-[#4a3f44]/30 font-bold font-serif">© 2026 TUKA. Bengal Handlooms.</p>
+            <p className="text-[14px] tracking-[0.3em] uppercase text-[#4a3f44]/50 font-bold font-serif">© 2026 TUKA (Legal Entity: DIPANWITA PATRA). Bengal Handlooms.</p>
           </div>
         </motion.div>
       </div>

@@ -41,7 +41,7 @@ const ReturnPolicy = () => {
               </div>
               <div className="md:col-span-8 space-y-8">
                 <p className="text-base sm:text-lg text-[#4a3f44] leading-relaxed font-light">
-                  Returns are only accepted for defective products and must be made within 7 days of purchase. A clear video of the product unboxing is required as proof to process any return request. The product must be unused, in its original packaging, with the tag intact, and should include the invoice. To start the return process for defective products, please contact us at <a href="mailto:info@tuka.in" className="text-[#b13896] border-b-2 border-[#b13896]/20 hover:border-[#b13896] transition-all font-bold">info@tuka.in</a>.
+                  Returns are only accepted for defective products and must be made within 7 days of purchase. A clear video of the product unboxing is required as proof to process any return request. The product must be unused, in its original packaging, with the tag intact, and should include the invoice. To start the return process for defective products, please contact us at <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] border-b-2 border-[#b13896]/20 hover:border-[#b13896] transition-all font-bold">tukasupport@gmail.com</a> or call/WhatsApp us at <a href="tel:+919831133937" className="text-[#b13896] font-bold">+91 9831133937</a>.
                 </p>
                 <div className="p-10 bg-white/40 rounded-[32px] border border-[#e5d5df]/30 shadow-sm italic">
                   <p className="text-base text-[#161114] leading-relaxed font-serif">
@@ -100,14 +100,14 @@ const ReturnPolicy = () => {
               </div>
               <div className="md:col-span-8">
                 <p className="text-base sm:text-lg text-[#4a3f44] leading-relaxed font-light">
-                  Refunds are processed after we receive the product in its original, unused condition with packaging and tags intact. Refunds will be issued within 5 working days via the original payment method or by cheque.
+                  Refunds are processed after we receive the product in its original, unused condition with packaging and tags intact. Refunds will be issued within 5 working days via the original payment method or by bank transfer. Legal Entity: <strong>DIPANWITA PATRA</strong>.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="pt-24 border-t border-[#e5d5df]/30 text-center">
-            <p className="text-[14px] tracking-[0.5em] uppercase text-[#4a3f44]/30 font-bold">© 2026 TUKA. Handloom Heritage & Fine Tailoring.</p>
+            <p className="text-[14px] tracking-[0.3em] uppercase text-[#4a3f44]/50 font-bold">© 2026 TUKA (Legal Entity: DIPANWITA PATRA). Handloom Heritage & Fine Tailoring.</p>
           </div>
         </motion.div>
       </div>

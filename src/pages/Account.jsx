@@ -451,7 +451,7 @@ const Account = () => {
   return (
     <div className="min-h-screen bg-[#FDF8F5] font-sans text-[#161114] pt-28 lg:pt-36 pb-24 selection:bg-[#b13896] selection:text-white">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Subtle Page Breadcrumb */}
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-6">
           <Link to="/" className="hover:text-[#b13896] transition-colors">Home</Link>
@@ -461,10 +461,10 @@ const Account = () => {
 
         {/* Dashboard Grid Container */}
         <div className="grid lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Left Vertical Sidebar (Desktop) & Mobile Top Menu */}
           <div className="lg:col-span-4 space-y-6">
-            
+
             {/* Patron Profile Box */}
             <div className="bg-white rounded-3xl p-6 border border-[#e6ded8] shadow-sm relative overflow-hidden space-y-6">
               <div className="flex items-center gap-4">
@@ -562,7 +562,7 @@ const Account = () => {
             {/* TAB 1: OVERVIEW */}
             {activeTab === 'overview' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                
+
                 {/* 4 Stats Cards Row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   <div className="bg-white p-5 rounded-3xl border border-[#e6ded8] shadow-xs">
@@ -671,7 +671,7 @@ const Account = () => {
             {activeTab === 'orders' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e6ded8] shadow-xs space-y-6">
-                  
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div>
                       <h3 className="text-2xl font-serif font-bold text-[#161114]">Order History</h3>
@@ -705,7 +705,7 @@ const Account = () => {
 
                         return (
                           <div key={order.id} className="p-5 sm:p-6 rounded-2xl bg-[#F8F4EF] border border-[#e6ded8] space-y-5">
-                            
+
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                               <div>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#b13896] block">Order Number</span>
@@ -785,7 +785,7 @@ const Account = () => {
                               >
                                 <FileText size={14} /> Tax Invoice
                               </button>
-                              
+
                               <button
                                 onClick={() => {
                                   setTrackWaybillInput(order.awbCode || order.orderNumber || order.id);

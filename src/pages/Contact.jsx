@@ -17,7 +17,7 @@ const Contact = () => {
     setSubmitted(true);
 
     const textMsg = `Hello Tuka Studio,\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}\nInquiry: ${formData.subject}\nMessage: ${formData.message}`;
-    const whatsappUrl = `https://wa.me/917400444522?text=${encodeURIComponent(textMsg)}`;
+    const whatsappUrl = `https://wa.me/919831133937?text=${encodeURIComponent(textMsg)}`;
     
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setTimeout(() => setSubmitted(false), 3000);
@@ -55,7 +55,7 @@ const Contact = () => {
               
               <div>
                 <span className="text-[10px] font-bold tracking-[0.25em] text-[#b13896] uppercase block mb-1" style={{ fontFamily: SANS }}>
-                  STUDIO CONCIERGE
+                  STUDIO CONCIERGE & LEGAL DETAILS
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-light text-[#161114]" style={{ fontFamily: SERIF }}>
                   We are here to assist you
@@ -67,6 +67,24 @@ const Contact = () => {
 
               <div className="space-y-4 pt-2 border-t border-slate-100 font-sans">
                 
+                {/* Legal Entity Name */}
+                <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-[#b13896]/30 transition-all">
+                  <div className="p-2.5 rounded-xl bg-[#b13896]/10 text-[#b13896] shrink-0 mt-0.5">
+                    <ShieldCheck size={18} strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block" style={{ fontFamily: SANS }}>
+                      Legal Business Name
+                    </span>
+                    <span className="text-base font-bold text-slate-900 font-sans tracking-normal block">
+                      DIPANWITA PATRA
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
+                      Brand Name: House of Tuka / Tuka
+                    </span>
+                  </div>
+                </div>
+
                 {/* Phone / WhatsApp */}
                 <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-[#b13896]/30 transition-all">
                   <div className="p-2.5 rounded-xl bg-[#b13896]/10 text-[#b13896] shrink-0 mt-0.5">
@@ -77,12 +95,12 @@ const Contact = () => {
                       Call or WhatsApp
                     </span>
                     <a 
-                      href="https://wa.me/917400444522" 
+                      href="https://wa.me/919831133937" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-base font-semibold text-slate-900 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
                     >
-                      +91 74004 44522
+                      +91 9831133937
                     </a>
                     <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
                       Mon – Sat, 9:30 AM – 8:30 PM IST
@@ -97,13 +115,13 @@ const Contact = () => {
                   </div>
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block" style={{ fontFamily: SANS }}>
-                      Email Support
+                      Support Email
                     </span>
                     <a 
-                      href="mailto:hello@tuka.in" 
+                      href="mailto:tukasupport@gmail.com" 
                       className="text-base font-semibold text-slate-900 font-sans hover:text-[#b13896] transition-colors block"
                     >
-                      hello@tuka.in
+                      tukasupport@gmail.com
                     </a>
                     <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
                       Response within 2 business hours
@@ -152,13 +170,13 @@ const Contact = () => {
                 Tap below to chat directly with our studio team on WhatsApp for custom drape advice, weave verification, or order updates.
               </p>
               <a 
-                href="https://wa.me/917400444522"
+                href="https://wa.me/919831133937"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans"
               >
                 <MessageCircle size={16} />
-                <span>Message 2KAS BOUTIQUE on WhatsApp</span>
+                <span>Message TUKA BOUTIQUE on WhatsApp</span>
               </a>
             </div>
 

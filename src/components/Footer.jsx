@@ -128,19 +128,22 @@ const Footer = () => {
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
                     <Phone size={16} className="text-[#b13896]" />
                   </div>
-                  <span className="font-semibold text-slate-900 tracking-normal">+91 74004 44522</span>
+                  <a href="tel:+919831133937" className="font-semibold text-slate-900 tracking-normal hover:text-[#b13896] transition-colors">+91 9831133937</a>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
                     <Mail size={16} className="text-[#b13896]" />
                   </div>
-                  <span className="font-medium text-slate-800">hello@tuka.in</span>
+                  <a href="mailto:tukasupport@gmail.com" className="font-medium text-slate-800 hover:text-[#b13896] transition-colors">tukasupport@gmail.com</a>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
                     <MapPin size={16} className="text-[#b13896]" />
                   </div>
                   <span className="font-medium text-slate-800">Bengal Weaving Cluster, West Bengal, India</span>
+                </div>
+                <div className="text-xs text-slate-500 pt-1 font-medium">
+                  Legal Entity Name: <span className="font-bold text-slate-800">DIPANWITA PATRA</span>
                 </div>
               </div>
 
@@ -149,7 +152,7 @@ const Footer = () => {
                 {[
                   { icon: <Instagram size={19} />, href: 'https://www.instagram.com/reel/Da623OHsZyl/?igsh=MjB3MzBwbjJudnli', label: 'Instagram' },
                   { icon: <Facebook size={19} />, href: 'https://www.facebook.com/share/p/14iA59vUbt6/', label: 'Facebook' },
-                  { icon: <MessageCircle size={19} />, href: 'https://wa.me/917400444522', label: 'WhatsApp' },
+                  { icon: <MessageCircle size={19} />, href: 'https://wa.me/919831133937', label: 'WhatsApp' },
                 ].map(({ icon, href, label }) => (
                   <a
                     key={label}
@@ -193,7 +196,7 @@ const Footer = () => {
           {/* ── Bottom Bar (Copyright & Policy Links) ───────────────────────── */}
           <div className="pt-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 font-sans">
             <p className="text-center sm:text-left font-normal">
-              © {currentYear} House of Tuka. All Rights Reserved. Crafted with care in India.
+              © {currentYear} House of Tuka (Legal Entity: DIPANWITA PATRA). All Rights Reserved.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 font-medium">
