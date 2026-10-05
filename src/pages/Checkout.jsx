@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 // Safe dynamic Cashfree loader helper
-const loadCashfreeSDK = async (mode = "sandbox") => {
+const loadCashfreeSDK = async (mode = "production") => {
   try {
     const cashfreeSdk = await import("@cashfreepayments/cashfree-js");
     const loadFn = cashfreeSdk.load || cashfreeSdk.default?.load;
@@ -311,7 +311,8 @@ const Checkout = () => {
         return;
       }
 
-      const cashfree = await loadCashfreeSDK("sandbox"); // Use "production" for live
+      const mode = cData.env_mode || import.meta.env.VITE_CASHFREE_ENV || "production";
+      const cashfree = await loadCashfreeSDK(mode);
 
       const checkoutOptions = {
         paymentSessionId: cData.payment_session_id

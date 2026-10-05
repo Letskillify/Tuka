@@ -1,6 +1,13 @@
-import cashfreePkg from "cashfree-pg-sdk-nodejs";
-const { Cashfree } = cashfreePkg;
-import { clientDb, adminDb, doc, getDoc } from "../_lib/firebaseServer.js";
+// cashfree-pg-sdk-nodejs v2 — uses CFPaymentGateway, CFConfig, CFEnvironment
+import {
+    CFPaymentGateway,
+    CFConfig,
+    CFEnvironment,
+    CFOrderRequest,
+    CFCustomerDetails
+} from "cashfree-pg-sdk-nodejs";
+
+import { clientDb, doc, getDoc } from "../_lib/firebaseServer.js";
 
 const getDb = () => clientDb;
 
@@ -77,54 +84,61 @@ export default async function handler(req, res) {
         else if (code === "WELCOME20") discount = calculatedSubtotal * 0.2;
         else if (code === "GIFT500") discount = Math.min(500, calculatedSubtotal);
 
-        const finalTotal = Math.max(1, calculatedSubtotal - discount); // Must be at least 1 INR
+        const finalTotal = Math.max(1, calculatedSubtotal - discount);
 
         const appId = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
         const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
-        const envMode = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "SANDBOX";
+        const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
+        const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
 
         if (!appId || !secretKey || appId.startsWith("YOUR_")) {
-            // Dev mode fallback
+            // Dev mode fallback — no real keys configured
             return res.status(200).json({
                 payment_session_id: `session_mock_${Date.now()}`,
                 order_id: `order_mock_${Date.now()}`,
+                env_mode: "sandbox",
                 amount: finalTotal,
                 currency: "INR",
-                subtotal: calculatedSubtotal, 
-                discount, 
+                subtotal: calculatedSubtotal,
+                discount,
                 total: finalTotal
             });
         }
 
-        Cashfree.XClientId = appId;
-        Cashfree.XClientSecret = secretKey;
-        Cashfree.XEnvironment = envMode.toUpperCase() === "PRODUCTION"
-            ? Cashfree.Environment.PRODUCTION 
-            : Cashfree.Environment.SANDBOX;
+        // Build CFConfig for cashfree-pg-sdk-nodejs v2
+        const cfEnvironment = isProd ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+        const cfConfig = new CFConfig(cfEnvironment, "2023-08-01", appId, secretKey);
 
-        // Clean customer ID and phone number for Cashfree API validation requirements
+        // Build customer details
         const rawCustomerId = customerDetails?.id || customerDetails?.email || "guest_" + Date.now();
         const sanitizedCustId = String(rawCustomerId).replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 45);
-        
         const rawPhone = String(customerDetails?.phone || "").replace(/\D/g, "");
         const sanitizedPhone = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9999999999";
 
-        const request = {
-            order_amount: finalTotal,
-            order_currency: "INR",
-            order_id: "ORD_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-            customer_details: {
-                customer_id: sanitizedCustId,
-                customer_email: customerDetails?.email || "guest@tuka.com",
-                customer_phone: sanitizedPhone
-            }
-        };
+        const cfCustomer = new CFCustomerDetails();
+        cfCustomer.customerId = sanitizedCustId;
+        cfCustomer.customerEmail = customerDetails?.email || "guest@tuka.com";
+        cfCustomer.customerPhone = sanitizedPhone;
 
-        const response = await Cashfree.PGCreateOrder("2023-08-01", request);
+        // Build order request
+        const cfOrderReq = new CFOrderRequest();
+        cfOrderReq.orderId = "ORD_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+        cfOrderReq.orderAmount = finalTotal;
+        cfOrderReq.orderCurrency = "INR";
+        cfOrderReq.customerDetails = cfCustomer;
+
+        // Create order via v2 SDK
+        const gateway = new CFPaymentGateway();
+        const response = await gateway.orderCreate(cfConfig, cfOrderReq);
+
+        // v2 SDK response shape: { cfHeaders, cfOrder: CFOrder }
+        // CFOrder fields are camelCase: paymentSessionId, orderId
+        const cfOrderRes = response?.cfOrder || response?.data || response;
 
         return res.status(200).json({
-            payment_session_id: response.data.payment_session_id,
-            order_id: response.data.order_id,
+            payment_session_id: cfOrderRes.paymentSessionId || cfOrderRes.payment_session_id,
+            order_id: cfOrderRes.orderId || cfOrderRes.order_id,
+            env_mode: isProd ? "production" : "sandbox",
             amount: finalTotal,
             currency: "INR",
             subtotal: calculatedSubtotal,
@@ -133,7 +147,7 @@ export default async function handler(req, res) {
         });
 
     } catch (err) {
-        console.error("[CashfreeCreateOrder] Error:", err);
-        return res.status(500).json({ error: err.message || "Failed to initialize payment." });
+        console.error("[CashfreeCreateOrder] Error:", err?.response?.data || err.message || err);
+        return res.status(500).json({ error: err?.response?.data?.message || err.message || "Failed to initialize payment." });
     }
 }
