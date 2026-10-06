@@ -1,18 +1,18 @@
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import {
-  clientDb,
-  adminDb,
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp
+    clientDb,
+    adminDb,
+    doc,
+    getDoc,
+    setDoc,
+    serverTimestamp
 } from "./_lib/firebaseServer.js";
 
 const getDb = () => clientDb;
 
 const isValidEmail = (email) => {
-  return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 };
 
 const generateOtpHtml = (otp) => `
@@ -86,85 +86,85 @@ const generateOtpHtml = (otp) => `
 `;
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  try {
-    const rawEmail = req.body?.email;
-    if (!isValidEmail(rawEmail)) {
-      return res.status(400).json({ error: "Please enter a valid email address." });
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const email = rawEmail.trim().toLowerCase();
-    const db = getDb();
+    try {
+        const rawEmail = req.body?.email;
+        if (!isValidEmail(rawEmail)) {
+            return res.status(400).json({ error: "Please enter a valid email address." });
+        }
 
-    // Check rate limiting / resend cooldown (60 seconds)
-    const otpRef = doc(db, "otps", email);
-    const existingSnap = await getDoc(otpRef);
+        const email = rawEmail.trim().toLowerCase();
+        const db = getDb();
 
-    if (existingSnap.exists()) {
-      const existingData = existingSnap.data();
-      const lastCreatedTime = existingData.lastSentMs || new Date(existingData.createdAt?.seconds * 1000 || 0).getTime();
-      const elapsedSeconds = (Date.now() - lastCreatedTime) / 1000;
+        // Check rate limiting / resend cooldown (60 seconds)
+        const otpRef = doc(db, "otps", email);
+        const existingSnap = await getDoc(otpRef);
 
-      if (elapsedSeconds < 60) {
-        const retryAfter = Math.ceil(60 - elapsedSeconds);
-        return res.status(429).json({
-          error: `Please wait ${retryAfter} second(s) before requesting a new OTP.`,
-          cooldownSeconds: retryAfter
+        if (existingSnap.exists()) {
+            const existingData = existingSnap.data();
+            const lastCreatedTime = existingData.lastSentMs || new Date(existingData.createdAt?.seconds * 1000 || 0).getTime();
+            const elapsedSeconds = (Date.now() - lastCreatedTime) / 1000;
+
+            if (elapsedSeconds < 60) {
+                const retryAfter = Math.ceil(60 - elapsedSeconds);
+                return res.status(429).json({
+                    error: `Please wait ${retryAfter} second(s) before requesting a new OTP.`,
+                    cooldownSeconds: retryAfter
+                });
+            }
+        }
+
+        // Generate 6-digit OTP
+        const otp = crypto.randomInt(100000, 999999).toString();
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+        // Save hashed OTP in Firestore
+        await setDoc(otpRef, {
+            email,
+            otpHash,
+            expiresAt,
+            attempts: 0,
+            used: false,
+            lastSentMs: Date.now(),
+            createdAt: serverTimestamp()
         });
-      }
+
+        // Send OTP via Nodemailer
+        const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+        const smtpPort = Number(process.env.SMTP_PORT || 465);
+        const smtpUser = process.env.SMTP_USER;
+        const smtpPass = process.env.SMTP_PASS;
+        const smtpFrom = process.env.SMTP_FROM || `"Tuka Clothing" <no-reply@tuka.co.in>`;
+
+        if (!smtpUser || !smtpPass) {
+            return res.status(503).json({ error: "Email service is temporarily unconfigured." });
+        }
+
+        const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: Boolean(process.env.SMTP_SECURE === "true" || smtpPort === 465),
+            auth: { user: smtpUser, pass: smtpPass }
+        });
+
+        await transporter.sendMail({
+            from: smtpFrom,
+            to: email,
+            subject: `${otp} is your House of Tuka verification code`,
+            html: generateOtpHtml(otp)
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `Verification code sent to ${email}.`,
+            cooldownSeconds: 60
+        });
+    } catch (err) {
+        console.error("[SendOTP] Error sending OTP:", err);
+        return res.status(500).json({ error: "Failed to send verification email. Please check address and try again." });
     }
-
-    // Generate 6-digit OTP
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-    // Save hashed OTP in Firestore
-    await setDoc(otpRef, {
-      email,
-      otpHash,
-      expiresAt,
-      attempts: 0,
-      used: false,
-      lastSentMs: Date.now(),
-      createdAt: serverTimestamp()
-    });
-
-    // Send OTP via Nodemailer
-    const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-    const smtpPort = Number(process.env.SMTP_PORT || 465);
-    const smtpUser = process.env.SMTP_USER || "tukasupport@gmail.com";
-    const smtpPass = process.env.SMTP_PASS || "vfzoaatozycaowzh";
-    const smtpFrom = process.env.SMTP_FROM || `"Tuka Clothing" <no-reply@tuka.co.in>`;
-
-    if (!smtpUser || !smtpPass) {
-      return res.status(503).json({ error: "Email service is temporarily unconfigured." });
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: Boolean(process.env.SMTP_SECURE === "true" || smtpPort === 465),
-      auth: { user: smtpUser, pass: smtpPass }
-    });
-
-    await transporter.sendMail({
-      from: smtpFrom,
-      to: email,
-      subject: `${otp} is your House of Tuka verification code`,
-      html: generateOtpHtml(otp)
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: `Verification code sent to ${email}.`,
-      cooldownSeconds: 60
-    });
-  } catch (err) {
-    console.error("[SendOTP] Error sending OTP:", err);
-    return res.status(500).json({ error: "Failed to send verification email. Please check address and try again." });
-  }
 }

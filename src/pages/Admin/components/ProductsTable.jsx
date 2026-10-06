@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Edit2, Trash2, Package, Plus, RefreshCw, Search, SlidersHorizontal, MoreVertical } from "lucide-react";
 import { statusBadgeClasses } from "./AdminUtils";
 import CSVUpload from "./CSVUpload";
+import DataMigration from "./DataMigration";
 
 const ProductsTable = ({ products, onAddProduct, onEditProduct, onDeleteProduct, onRefresh }) => {
   const [search, setSearch] = useState("");
@@ -27,6 +28,7 @@ const ProductsTable = ({ products, onAddProduct, onEditProduct, onDeleteProduct,
         </p>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
+        <DataMigration collectionName="products" label="Products" />
         <CSVUpload onComplete={onRefresh} />
         <button
           type="button"
@@ -48,9 +50,9 @@ const ProductsTable = ({ products, onAddProduct, onEditProduct, onDeleteProduct,
     </div>
 
     <div className="mx-5 mb-4 flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 sm:mx-8 sm:flex-row sm:items-center">
-      <label className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-400"><Search size={15}/><input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs text-slate-700 outline-none" placeholder="Search products..." /></label>
+      <label className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-400"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs text-slate-700 outline-none" placeholder="Search products..." /></label>
       <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none"><option>All Categories</option>{categories.map((item) => <option key={item}>{item}</option>)}</select>
-      <button className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700"><SlidersHorizontal size={14}/>Filter</button>
+      <button className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700"><SlidersHorizontal size={14} />Filter</button>
       {(search || category !== "All Categories") && <button onClick={() => { setSearch(""); setCategory("All Categories"); }} className="px-2 text-xs font-semibold text-[#b13896]">Reset</button>}
     </div>
     {/* Desktop Table */}

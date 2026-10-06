@@ -16,28 +16,23 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const docRef = doc(db, "superadmins", userCredential.user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists() && docSnap.data().role === 'superadmin') {
-          onAuthSuccess(userCredential.user);
-        } else {
-          await auth.signOut();
-          setError("Access denied. You are not authorized as a Super Admin.");
-        }
+      const envEmail = import.meta.env.VITE_ADMIN_EMAIL;
+      const envPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+
+      if (!envEmail || !envPassword) {
+        setError("Admin credentials are not configured in the environment variables (.env).");
+        setLoading(false);
+        return;
+      }
+
+      if (email === envEmail && password === envPassword) {
+        // Pass mock user since we are not using Firebase Auth for admin anymore
+        onAuthSuccess({ uid: "admin-env", email: envEmail, role: "superadmin" });
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, "superadmins", userCredential.user.uid), {
-          email: userCredential.user.email,
-          role: "superadmin",
-          createdAt: new Date().toISOString()
-        });
-        onAuthSuccess(userCredential.user);
+        setError("Invalid admin email or password.");
       }
     } catch (err) {
-      setError(err.message.replace("Firebase: ", "").replace("Error (auth/", "").replace(").", ""));
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -59,12 +54,10 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
                 <span className="text-2xl font-serif tracking-widest">SA</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
-                {isLogin ? 'Super Admin Portal' : 'Create Admin Account'}
+                System Admin Portal
               </h1>
               <p className="mt-2 text-sm text-slate-500">
-                {isLogin 
-                  ? 'Enter your credentials to access the control center.' 
-                  : 'Register a new super administrator to the system.'}
+                Enter your secure environment credentials to access the control center.
               </p>
             </div>
 
@@ -73,8 +66,8 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
                 <label className="block text-xs font-medium text-slate-700 uppercase tracking-wider mb-2">
                   Email Address
                 </label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -82,13 +75,13 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
                   placeholder="admin@tuka.com"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 uppercase tracking-wider mb-2">
                   Password
                 </label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -103,8 +96,8 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
                 </div>
               )}
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={loading}
                 className="w-full py-3.5 px-4 bg-[#811331] hover:bg-[#650f27] text-white rounded-xl font-medium shadow-md shadow-[#811331]/20 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center mt-2"
               >
@@ -118,19 +111,13 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
                 )}
               </button>
             </form>
-          </div>
-          
-          <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 text-center">
-            <button 
-              type="button"
-              onClick={() => { setIsLogin(!isLogin); setError(''); }}
-              className="text-sm font-medium text-slate-500 hover:text-[#811331] transition-colors"
-            >
-              {isLogin ? "Need a super admin account? Sign up" : "Already have an account? Sign in"}
-            </button>
+          </div>          <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 text-center">
+            <p className="text-sm font-medium text-slate-500">
+              Credentials are securely managed via .env
+            </p>
           </div>
         </div>
-        
+
         <div className="mt-8 text-center text-xs text-slate-400">
           <p>&copy; {new Date().getFullYear()} Super Admin Portal. All rights reserved.</p>
         </div>

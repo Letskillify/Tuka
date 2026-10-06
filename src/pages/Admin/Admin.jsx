@@ -330,9 +330,8 @@ const Admin = () => {
         <button
           onClick={() => setActiveItem("Dashboard")}
           title="Dashboard"
-          className={`mb-4 flex w-full items-center rounded-lg font-semibold transition-all ${
-            collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
-          } ${activeItem === "Dashboard" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
+          className={`mb-4 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+            } ${activeItem === "Dashboard" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
         >
           <LayoutDashboard size={15} />
           {!collapsed && "Dashboard"}
@@ -345,9 +344,8 @@ const Admin = () => {
         <button
           onClick={() => { setActiveItem("Products"); if (!collapsed) setProductsMenuOpen(!productsMenuOpen); }}
           title="Products"
-          className={`flex w-full items-center rounded-lg font-semibold transition-all ${
-            collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
-          } ${activeItem === "Products" || activeItem === "AddProduct" || activeItem === "EditProduct" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
+          className={`flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+            } ${activeItem === "Products" || activeItem === "AddProduct" || activeItem === "EditProduct" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
         >
           <Package size={15} />
           {!collapsed && (
@@ -385,9 +383,8 @@ const Admin = () => {
             <button
               onClick={() => setActiveItem(target)}
               title={title}
-              className={`flex w-full items-center rounded-lg transition-all ${
-                collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2"
-              } ${activeItem === target ? "bg-[#a4143e] text-white font-bold" : "text-white/80 hover:bg-white/10"}`}
+              className={`flex w-full items-center rounded-lg transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2"
+                } ${activeItem === target ? "bg-[#a4143e] text-white font-bold" : "text-white/80 hover:bg-white/10"}`}
             >
               <Icon size={15} />
               {!collapsed && <span className="flex-1 text-left">{title}</span>}
@@ -402,9 +399,8 @@ const Admin = () => {
               <button
                 key={label}
                 onClick={() => setActiveItem(target)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                  activeItem === target ? "bg-[#a4143e] text-white font-bold" : "text-white/80 hover:bg-white/10"
-                }`}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-all ${activeItem === target ? "bg-[#a4143e] text-white font-bold" : "text-white/80 hover:bg-white/10"
+                  }`}
               >
                 <Icon size={15} />{label}
               </button>
@@ -419,9 +415,8 @@ const Admin = () => {
                 key={label}
                 title={label}
                 onClick={() => setActiveItem(target)}
-                className={`flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-all mt-1 ${
-                  activeItem === target ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"
-                }`}
+                className={`flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-all mt-1 ${activeItem === target ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"
+                  }`}
               >
                 <Icon size={15} />
               </button>
@@ -492,9 +487,8 @@ const Admin = () => {
     <div className={`min-h-screen ${bg} ${textPrimary} font-sans selection:bg-[#b13896]/10 transition-colors duration-300`}>
       {/* ─── Fixed Sidebar — Desktop ─── */}
       <aside
-        className={`hidden lg:flex flex-col fixed top-0 left-0 h-screen z-30 transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed ? "w-16" : "w-60"
-        }`}
+        className={`hidden lg:flex flex-col fixed top-0 left-0 h-screen z-30 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? "w-16" : "w-60"
+          }`}
       >
         <SidebarContent collapsed={isSidebarCollapsed} />
       </aside>
@@ -581,8 +575,8 @@ const Admin = () => {
                         {r.img
                           ? <img src={r.img} alt="" className="h-full w-full object-cover" />
                           : r.type === "product" ? <Package size={14} className="text-[#b13896]" />
-                          : r.type === "order" ? <ShoppingBag size={14} className="text-amber-500" />
-                          : <Users size={14} className="text-blue-500" />
+                            : r.type === "order" ? <ShoppingBag size={14} className="text-amber-500" />
+                              : <Users size={14} className="text-blue-500" />
                         }
                       </div>
                       <div className="min-w-0">
@@ -609,9 +603,8 @@ const Admin = () => {
             {/* Day / Night Toggle */}
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition-all ${
-                isDarkMode ? "bg-slate-700 text-yellow-400 hover:bg-slate-600" : "text-slate-600 hover:bg-slate-100"
-              }`}
+              className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition-all ${isDarkMode ? "bg-slate-700 text-yellow-400 hover:bg-slate-600" : "text-slate-600 hover:bg-slate-100"
+                }`}
               title={isDarkMode ? "Switch to Day Mode" : "Switch to Night Mode"}
             >
               <AnimatePresence mode="wait">

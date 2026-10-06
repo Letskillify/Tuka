@@ -16,6 +16,7 @@ import {
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../../components/Firebase";
 import { useCatalogData } from "./useCatalogData";
+import DataMigration from "./DataMigration";
 
 const CategorySubcategoryManager = ({ initialTab = "Overview" }) => {
   const {
@@ -271,23 +272,27 @@ const CategorySubcategoryManager = ({ initialTab = "Overview" }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl">
-          {[
-            { id: "Overview", label: "Overview" },
-            { id: "Categories", label: `Categories (${categories.length})` },
-            { id: "Subcategories", label: `Subcategories (${subCategoryObjects.length})` },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === tab.id
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <DataMigration collectionName="categories" label="Categories" />
+          <DataMigration collectionName="subcategories" label="Subcategories" />
+          <div className="flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl">
+            {[
+              { id: "Overview", label: "Overview" },
+              { id: "Categories", label: `Categories (${categories.length})` },
+              { id: "Subcategories", label: `Subcategories (${subCategoryObjects.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === tab.id
                   ? "bg-[#b13896] text-white shadow-md shadow-[#b13896]/20"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -429,8 +434,8 @@ const CategorySubcategoryManager = ({ initialTab = "Overview" }) => {
                   <div
                     key={cat.name}
                     className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${isSelected
-                        ? "border-[#b13896] bg-rose-50/20 shadow-sm"
-                        : "border-slate-100 bg-white hover:border-[#b13896]/40 hover:shadow-sm"
+                      ? "border-[#b13896] bg-rose-50/20 shadow-sm"
+                      : "border-slate-100 bg-white hover:border-[#b13896]/40 hover:shadow-sm"
                       }`}
                   >
                     <div>

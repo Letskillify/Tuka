@@ -7,7 +7,7 @@ import {
     CFCustomerDetails
 } from "cashfree-pg-sdk-nodejs";
 
-import { clientDb, doc, getDoc } from "../_lib/firebaseServer.js";
+import { clientDb, adminDb, doc, getDoc } from "../_lib/firebaseServer.js";
 
 const getDb = () => clientDb;
 
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "No items provided in request." });
         }
 
-        const db = getDb();
+        const db = adminDb || clientDb;
         let calculatedSubtotal = 0;
         const validatedItems = [];
 
@@ -35,14 +35,53 @@ export default async function handler(req, res) {
             const selectedSize = rawItem.size || rawItem.selectedSize || null;
             const qty = Math.max(1, Number(rawItem.quantity || 1));
 
-            const pRef = doc(db, "products", baseId);
-            const pSnap = await getDoc(pRef);
+            let pData;
+            let exists = false;
 
-            if (!pSnap.exists()) {
-                return res.status(400).json({ error: `Product "${rawItem.name || baseId}" no longer exists.` });
+            if (adminDb) {
+                const pSnap = await adminDb.collection("products").doc(baseId).get();
+                exists = pSnap.exists;
+                pData = pSnap.data();
+            } else {
+                // Fallback to RAW REST API to avoid Node.js "Client Offline" socket errors
+                let projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+                if (!projectId || projectId === "undefined") {
+                    console.warn("No PROJECT_ID found, skipping product verification for DEV checkout.");
+                    pData = { price: rawItem.price, stock: 100, status: "Active", name: rawItem.name };
+                    exists = true;
+                } else {
+                    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products/${baseId}`;
+                    const resRest = await fetch(url);
+                    if (resRest.ok) {
+                        const json = await resRest.json();
+                        if (json.fields) {
+                            exists = true;
+                            // Parse basic fields
+                            const parseVal = (v) => v.stringValue !== undefined ? v.stringValue : (v.integerValue !== undefined ? Number(v.integerValue) : (v.doubleValue !== undefined ? Number(v.doubleValue) : (v.booleanValue !== undefined ? v.booleanValue : null)));
+                            pData = {};
+                            for (const k in json.fields) {
+                                pData[k] = parseVal(json.fields[k]);
+                            }
+
+                            // Parse sizeVariants array if present
+                            if (json.fields.sizeVariants && json.fields.sizeVariants.arrayValue && json.fields.sizeVariants.arrayValue.values) {
+                                pData.sizeVariants = json.fields.sizeVariants.arrayValue.values.map(val => {
+                                    if (!val.mapValue) return null;
+                                    const sv = {};
+                                    for (const sk in val.mapValue.fields) {
+                                        sv[sk] = parseVal(val.mapValue.fields[sk]);
+                                    }
+                                    return sv;
+                                }).filter(Boolean);
+                            }
+                        }
+                    }
+                }
             }
 
-            const pData = pSnap.data();
+            if (!exists) {
+                return res.status(400).json({ error: `Product "${rawItem.name || baseId}" no longer exists.` });
+            }
 
             if (pData.status === "Draft" || pData.visibility === "Private") {
                 return res.status(400).json({ error: `Product "${pData.name}" is currently unavailable.` });

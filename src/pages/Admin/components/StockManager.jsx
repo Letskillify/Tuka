@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { collection, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../components/Firebase";
+import DataMigration from "./DataMigration";
 
 const StockManager = () => {
   const [products, setProducts] = useState([]);
@@ -178,9 +179,12 @@ const StockManager = () => {
           </div>
         </div>
 
-        <span className="text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-full">
-          {products.length} Products Tracked
-        </span>
+        <div className="flex items-center gap-2">
+          <DataMigration collectionName="products" label="Stock Data" />
+          <span className="text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-full">
+            {products.length} Products Tracked
+          </span>
+        </div>
       </div>
 
       {errorMessage && (
@@ -243,11 +247,10 @@ const StockManager = () => {
               <button
                 key={btn.id}
                 onClick={() => setFilterStatus(btn.id)}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  filterStatus === btn.id
+                className={`px-3 py-1.5 rounded-lg transition-all ${filterStatus === btn.id
                     ? "bg-white text-[#b13896] shadow-sm font-bold"
                     : "text-slate-500 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 {btn.label}
               </button>
@@ -368,13 +371,12 @@ const StockManager = () => {
                       <select
                         value={currentStatus}
                         onChange={(e) => handleStatusChange(product.id, e.target.value)}
-                        className={`px-3 py-1.5 rounded-xl font-bold text-xs outline-none border ${
-                          currentStatus === "In Stock"
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs outline-none border ${currentStatus === "In Stock"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : currentStatus === "Out of Stock"
-                            ? "bg-rose-50 text-rose-700 border-rose-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
-                        }`}
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}
                       >
                         <option value="In Stock">In Stock</option>
                         <option value="Out of Stock">Out of Stock</option>
@@ -393,11 +395,10 @@ const StockManager = () => {
                         <button
                           onClick={() => saveProductStock(product)}
                           disabled={!hasEdits || isSaving}
-                          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
-                            hasEdits
+                          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all ${hasEdits
                               ? "bg-[#b13896] text-white hover:bg-[#962e7f] shadow-md shadow-[#b13896]/20 cursor-pointer"
                               : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                          }`}
+                            }`}
                         >
                           <Save size={13} />
                           {isSaving ? "Saving..." : "Save Stock"}
