@@ -18,9 +18,9 @@ const PrivacyPolicy = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFAF5] text-[#161114] font-sans overflow-hidden">
-      
+
       {/* Premium Breadcrumb */}
-      <Breadcrumb 
+      <Breadcrumb
         title="Privacy Policy"
         subtitle="How we protect your data and ensure your trust in our handloom catalog."
         bgImage="https://images.unsplash.com/photo-1544027993-37dbfe43552e?auto=format&fit=crop&q=80&w=1600"
@@ -29,7 +29,7 @@ const PrivacyPolicy = () => {
 
       <div className="max-w-4xl mx-auto py-20 px-6 relative z-10">
         <motion.div {...fader}>
-          
+
           <div className="space-y-20 sm:space-y-24 text-[#4a3f44] leading-relaxed tracking-wide text-base sm:text-lg font-light">
             <section className="space-y-8 group">
               <div className="flex items-center gap-5 text-[#b13896]">
@@ -39,8 +39,8 @@ const PrivacyPolicy = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">01. Commitment to Privacy</h2>
               </div>
               <p className="font-serif">
-                At Tuka, we respect your privacy and are committed to protecting your personal data. 
-                This privacy policy will inform you as to how we look after your personal data when you visit our website 
+                At Tuka, we respect your privacy and are committed to protecting your personal data.
+                This privacy policy will inform you as to how we look after your personal data when you visit our website
                 and tell you about your privacy rights and how the law protects you.
               </p>
             </section>
@@ -103,7 +103,7 @@ const PrivacyPolicy = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">04. Data Security</h2>
               </div>
               <p className="font-serif">
-                We have put in place appropriate security measures to prevent your personal data from being accidentally lost, used or accessed in an unauthorized way, altered or disclosed. 
+                We have put in place appropriate security measures to prevent your personal data from being accidentally lost, used or accessed in an unauthorized way, altered or disclosed.
                 In addition, we limit access to your personal data to those employees and agents who have a business need to know.
               </p>
             </section>
@@ -126,7 +126,7 @@ const PrivacyPolicy = () => {
                   <strong className="text-[#161114]">Support Email:</strong> <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] underline">tukasupport@gmail.com</a>
                 </li>
                 <li className="flex gap-3">
-                  <strong className="text-[#161114]">Phone:</strong> <a href="tel:+919831133937" className="text-[#b13896] underline">+91 9831133937</a>
+                  <strong className="text-[#161114]">Phone:</strong> <a href="tel:+917400444522" className="text-[#b13896] underline">+91 7400444522</a>
                 </li>
               </ul>
             </section>

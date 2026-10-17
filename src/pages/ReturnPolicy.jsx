@@ -18,9 +18,9 @@ const ReturnPolicy = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFAF5] text-[#161114] font-sans overflow-hidden">
-      
+
       {/* Premium Breadcrumb */}
-      <Breadcrumb 
+      <Breadcrumb
         title="Return Policy"
         subtitle="Our commitment to your satisfaction — detailed guidelines for returns and exchanges."
         bgImage="https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=1600"
@@ -41,7 +41,7 @@ const ReturnPolicy = () => {
               </div>
               <div className="md:col-span-8 space-y-8">
                 <p className="text-base sm:text-lg text-[#4a3f44] leading-relaxed font-light">
-                  Returns are only accepted for defective products and must be made within 7 days of purchase. A clear video of the product unboxing is required as proof to process any return request. The product must be unused, in its original packaging, with the tag intact, and should include the invoice. To start the return process for defective products, please contact us at <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] border-b-2 border-[#b13896]/20 hover:border-[#b13896] transition-all font-bold">tukasupport@gmail.com</a> or call/WhatsApp us at <a href="tel:+919831133937" className="text-[#b13896] font-bold">+91 9831133937</a>.
+                  Returns are only accepted for defective products and must be made within 7 days of purchase. A clear video of the product unboxing is required as proof to process any return request. The product must be unused, in its original packaging, with the tag intact, and should include the invoice. To start the return process for defective products, please contact us at <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] border-b-2 border-[#b13896]/20 hover:border-[#b13896] transition-all font-bold">tukasupport@gmail.com</a> or call/WhatsApp us at <a href="tel:+917400444522" className="text-[#b13896] font-bold">+91 7400444522</a>.
                 </p>
                 <div className="p-10 bg-white/40 rounded-[32px] border border-[#e5d5df]/30 shadow-sm italic">
                   <p className="text-base text-[#161114] leading-relaxed font-serif">

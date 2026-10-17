@@ -18,9 +18,9 @@ const TermsAndConditions = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFAF5] text-[#161114] font-sans overflow-hidden">
-      
+
       {/* Premium Breadcrumb */}
-      <Breadcrumb 
+      <Breadcrumb
         title="Terms & Conditions"
         subtitle="The legal framework governing our relationship with our valued patrons."
         bgImage="https://images.unsplash.com/photo-1554034483-04fac19c3d71?auto=format&fit=crop&q=80&w=1600"
@@ -29,7 +29,7 @@ const TermsAndConditions = () => {
 
       <div className="max-w-4xl mx-auto py-20 px-6 relative z-10">
         <motion.div {...fader}>
-          
+
           <div className="space-y-20 sm:space-y-24 text-[#4a3f44] leading-relaxed tracking-wide text-base sm:text-lg font-light">
             <section className="space-y-8 group">
               <div className="flex items-center gap-5 text-[#b13896]">
@@ -39,7 +39,7 @@ const TermsAndConditions = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">01. Acceptance of Terms</h2>
               </div>
               <p className="font-serif">
-                By accessing and using this website, you accept and agree to be bound by the terms and provision of this agreement. 
+                By accessing and using this website, you accept and agree to be bound by the terms and provision of this agreement.
                 In addition, when using these particular services, you shall be subject to any posted guidelines or rules applicable to such services.
               </p>
             </section>
@@ -52,7 +52,7 @@ const TermsAndConditions = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">02. Intellectual Property</h2>
               </div>
               <p className="font-serif">
-                The Site and its original content, features, and functionality are owned by Tuka and are protected by international copyright, 
+                The Site and its original content, features, and functionality are owned by Tuka and are protected by international copyright,
                 trademark, patent, trade secret, and other intellectual property or proprietary rights laws.
               </p>
             </section>
@@ -65,7 +65,7 @@ const TermsAndConditions = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">03. Termination</h2>
               </div>
               <p className="font-serif">
-                We may terminate your access to the Site, without cause or notice, which may result in the forfeiture and destruction of all information 
+                We may terminate your access to the Site, without cause or notice, which may result in the forfeiture and destruction of all information
                 associated with you. All provisions of this Agreement that by their nature should survive termination shall survive termination.
               </p>
             </section>
@@ -78,7 +78,7 @@ const TermsAndConditions = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">04. Governing Law</h2>
               </div>
               <p className="font-serif">
-                This Agreement (and any further rules, polices, or guidelines incorporated by reference) shall be governed and construed in accordance with 
+                This Agreement (and any further rules, polices, or guidelines incorporated by reference) shall be governed and construed in accordance with
                 the laws of India, without giving effect to any principles of conflicts of law.
               </p>
             </section>
@@ -91,7 +91,7 @@ const TermsAndConditions = () => {
                 <h2 className="text-[#161114] text-2xl font-serif font-bold tracking-tight">05. Changes to This Agreement</h2>
               </div>
               <p className="font-serif">
-                We reserve the right, at our sole discretion, to modify or replace these Terms and Conditions by posting the updated terms on the Site. 
+                We reserve the right, at our sole discretion, to modify or replace these Terms and Conditions by posting the updated terms on the Site.
                 Your continued use of the Site after any such changes constitutes your acceptance of the new Terms and Conditions.
               </p>
             </section>
@@ -114,7 +114,7 @@ const TermsAndConditions = () => {
                   <strong className="text-[#161114]">Support Email:</strong> <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] underline">tukasupport@gmail.com</a>
                 </li>
                 <li className="flex gap-3">
-                  <strong className="text-[#161114]">Contact Phone:</strong> <a href="tel:+919831133937" className="text-[#b13896] underline">+91 9831133937</a>
+                  <strong className="text-[#161114]">Contact Phone:</strong> <a href="tel:+917400444522" className="text-[#b13896] underline">+91 7400444522</a>
                 </li>
               </ul>
             </section>

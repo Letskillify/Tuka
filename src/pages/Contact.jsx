@@ -17,8 +17,8 @@ const Contact = () => {
     setSubmitted(true);
 
     const textMsg = `Hello Tuka Studio,\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}\nInquiry: ${formData.subject}\nMessage: ${formData.message}`;
-    const whatsappUrl = `https://wa.me/919831133937?text=${encodeURIComponent(textMsg)}`;
-    
+    const whatsappUrl = `https://wa.me/917400444522?text=${encodeURIComponent(textMsg)}`;
+
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setTimeout(() => setSubmitted(false), 3000);
   };
@@ -30,21 +30,21 @@ const Contact = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFBF9] text-[#161114]">
-      
+
       {/* Centered Premium Page Hero Header */}
-      <Breadcrumb 
+      <Breadcrumb
         title="Contact Us"
         subtitle="We'd love to hear from you. Reach out for weave consultations, custom blouse measurements, or order tracking."
         links={breadcrumbLinks}
       />
 
       <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-12 py-12 lg:py-20">
-        
+
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
-          
+
           {/* Left Column: Direct Concierge & Studio Info */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -52,7 +52,7 @@ const Contact = () => {
           >
             {/* Direct Studio Info Card */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
-              
+
               <div>
                 <span className="text-[10px] font-bold tracking-[0.25em] text-[#b13896] uppercase block mb-1" style={{ fontFamily: SANS }}>
                   STUDIO CONCIERGE & LEGAL DETAILS
@@ -66,7 +66,7 @@ const Contact = () => {
               </div>
 
               <div className="space-y-4 pt-2 border-t border-slate-100 font-sans">
-                
+
                 {/* Legal Entity Name */}
                 <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-[#b13896]/30 transition-all">
                   <div className="p-2.5 rounded-xl bg-[#b13896]/10 text-[#b13896] shrink-0 mt-0.5">
@@ -94,13 +94,13 @@ const Contact = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block" style={{ fontFamily: SANS }}>
                       Call or WhatsApp
                     </span>
-                    <a 
-                      href="https://wa.me/919831133937" 
-                      target="_blank" 
+                    <a
+                      href="https://wa.me/917400444522"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-base font-semibold text-slate-900 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
                     >
-                      +91 9831133937
+                      +91 7400444522
                     </a>
                     <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
                       Mon – Sat, 9:30 AM – 8:30 PM IST
@@ -117,8 +117,8 @@ const Contact = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block" style={{ fontFamily: SANS }}>
                       Support Email
                     </span>
-                    <a 
-                      href="mailto:tukasupport@gmail.com" 
+                    <a
+                      href="mailto:tukasupport@gmail.com"
                       className="text-base font-semibold text-slate-900 font-sans hover:text-[#b13896] transition-colors block"
                     >
                       tukasupport@gmail.com
@@ -169,8 +169,8 @@ const Contact = () => {
               <p className="text-xs text-white/70 font-light mb-4 leading-relaxed" style={{ fontFamily: SANS }}>
                 Tap below to chat directly with our studio team on WhatsApp for custom drape advice, weave verification, or order updates.
               </p>
-              <a 
-                href="https://wa.me/919831133937"
+              <a
+                href="https://wa.me/917400444522"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 px-5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md font-sans"
@@ -201,14 +201,14 @@ const Contact = () => {
           </motion.div>
 
           {/* Right Column: High Visibility Contact & Inquiry Form */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
             className="lg:col-span-7"
           >
             <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-sm relative">
-              
+
               <div className="mb-6 pb-4 border-b border-slate-100">
                 <span className="text-[10px] font-bold tracking-[0.25em] text-[#b13896] uppercase block mb-1" style={{ fontFamily: SANS }}>
                   SEND A MESSAGE
@@ -222,33 +222,33 @@ const Contact = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                
+
                 {/* Full Name & Phone */}
                 <div className="grid sm:grid-cols-2 gap-4 sm:gap-5">
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block" style={{ fontFamily: SANS }}>
                       Full Name *
                     </label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all font-sans" 
-                      placeholder="e.g. Ananya Sharma" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all font-sans"
+                      placeholder="e.g. Ananya Sharma"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block" style={{ fontFamily: SANS }}>
                       Phone / WhatsApp *
                     </label>
-                    <input 
-                      type="tel" 
+                    <input
+                      type="tel"
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all font-sans tracking-normal" 
-                      placeholder="+91 98765 43210" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all font-sans tracking-normal"
+                      placeholder="+91 98765 43210"
                     />
                   </div>
                 </div>
@@ -258,13 +258,13 @@ const Contact = () => {
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block" style={{ fontFamily: SANS }}>
                     Email Address *
                   </label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all font-sans" 
-                    placeholder="ananya@example.com" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all font-sans"
+                    placeholder="ananya@example.com"
                   />
                 </div>
 
@@ -274,7 +274,7 @@ const Contact = () => {
                     Inquiry Category
                   </label>
                   <div className="relative">
-                    <select 
+                    <select
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all appearance-none cursor-pointer font-sans"
@@ -294,18 +294,18 @@ const Contact = () => {
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block" style={{ fontFamily: SANS }}>
                     Your Message *
                   </label>
-                  <textarea 
-                    rows="4" 
+                  <textarea
+                    rows="4"
                     required
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all resize-none font-sans" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs sm:text-sm text-slate-900 outline-none focus:border-[#b13896] focus:bg-white transition-all resize-none font-sans"
                     placeholder="Specify saree weave preferences, custom blouse measurements, or order questions..."
                   />
                 </div>
 
                 {/* Submit Button */}
-                <button 
+                <button
                   type="submit"
                   className="w-full py-3.5 sm:py-4 rounded-xl bg-[#b13896] hover:bg-[#962e7f] text-white font-bold text-xs uppercase tracking-[0.2em] transition-all shadow-md shadow-[#b13896]/20 flex items-center justify-center gap-2 cursor-pointer"
                   style={{ fontFamily: SANS }}

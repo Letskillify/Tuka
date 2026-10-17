@@ -128,7 +128,7 @@ const Footer = () => {
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
                     <Phone size={16} className="text-[#b13896]" />
                   </div>
-                  <a href="tel:+919831133937" className="font-semibold text-slate-900 tracking-normal hover:text-[#b13896] transition-colors">+91 9831133937</a>
+                  <a href="tel:+917400444522" className="font-semibold text-slate-900 tracking-normal hover:text-[#b13896] transition-colors">+91 7400444522</a>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
@@ -152,7 +152,7 @@ const Footer = () => {
                 {[
                   { icon: <Instagram size={19} />, href: 'https://www.instagram.com/reel/Da623OHsZyl/?igsh=MjB3MzBwbjJudnli', label: 'Instagram' },
                   { icon: <Facebook size={19} />, href: 'https://www.facebook.com/share/p/14iA59vUbt6/', label: 'Facebook' },
-                  { icon: <MessageCircle size={19} />, href: 'https://wa.me/919831133937', label: 'WhatsApp' },
+                  { icon: <MessageCircle size={19} />, href: 'https://wa.me/917400444522', label: 'WhatsApp' },
                 ].map(({ icon, href, label }) => (
                   <a
                     key={label}
