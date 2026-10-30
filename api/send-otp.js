@@ -136,12 +136,12 @@ export default async function handler(req, res) {
         // Send OTP via Nodemailer
         const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
         const smtpPort = Number(process.env.SMTP_PORT || 465);
-        const smtpUser = process.env.SMTP_USER;
-        const smtpPass = process.env.SMTP_PASS;
-        const smtpFrom = process.env.SMTP_FROM || `"Tuka Clothing" <no-reply@tuka.co.in>`;
+        const smtpUser = (process.env.SMTP_USER || "").trim();
+        const smtpPass = (process.env.SMTP_PASS || "").trim();
+        const smtpFrom = process.env.SMTP_FROM || `"House of Tuka" <${smtpUser || "no-reply@tuka.co.in"}>`;
 
         if (!smtpUser || !smtpPass) {
-            return res.status(503).json({ error: "Email service is temporarily unconfigured." });
+            return res.status(503).json({ error: "Email service is temporarily unconfigured. Please check SMTP_USER and SMTP_PASS in .env" });
         }
 
         const transporter = nodemailer.createTransport({
@@ -165,6 +165,7 @@ export default async function handler(req, res) {
         });
     } catch (err) {
         console.error("[SendOTP] Error sending OTP:", err);
-        return res.status(500).json({ error: "Failed to send verification email. Please check address and try again." });
+        const detail = err.message || "Please check email address and try again.";
+        return res.status(500).json({ error: `Failed to send verification email: ${detail}` });
     }
 }
