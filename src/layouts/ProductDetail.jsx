@@ -51,10 +51,11 @@ const ProductDetail = () => {
           setDeliveryMsg(`Free Express Delivery in ${data.expectedDays || "3 to 5 Days"}`);
         }
       } else {
-        setDeliveryMsg('Delivery currently not available for this pincode.');
+        setDeliveryMsg(data.error || data.message || 'Delivery currently not available for this pincode.');
       }
     } catch (error) {
-      setDeliveryMsg('Error checking pincode.');
+      console.error('Pincode check error:', error);
+      setDeliveryMsg('Unable to verify delivery for this pincode. Please try again.');
     } finally {
       setCheckingPincode(false);
     }
