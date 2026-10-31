@@ -114,7 +114,7 @@ const TermsAndConditions = () => {
                   <strong className="text-[#161114]">Support Email:</strong> <a href="mailto:tukasupport@gmail.com" className="text-[#b13896] underline">tukasupport@gmail.com</a>
                 </li>
                 <li className="flex gap-3">
-                  <strong className="text-[#161114]">Contact Phone:</strong> <a href="tel:+917400444522" className="text-[#b13896] underline">+91 7400444522</a>
+                  <strong className="text-[#161114]">Contact Phone:</strong> <a href="tel:+919831133937" className="text-[#b13896] underline">+91 9831133937</a> / <a href="tel:+917400444522" className="text-[#b13896] underline">+91 7400444522</a>
                 </li>
               </ul>
             </section>
