@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
   addDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
@@ -57,13 +58,12 @@ const metricCards = (productCount, userCount, adminCount) => [
   { label: "Revenue", value: "₹0", trend: "Total platform", icon: Activity },
 ];
 
-const orderRows = [];
-
 const SuperAdmin = () => {
   const [activeItem, setActiveItem] = useState("Dashboard");
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [users, setUsers] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [adminsList, setAdminsList] = useState([]);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [newAdminId, setNewAdminId] = useState("");
@@ -130,6 +130,17 @@ const SuperAdmin = () => {
       loadProducts();
       loadUsers();
       loadAdminsList();
+
+      const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => {
+          const toMillis = (v) => v?.seconds ? v.seconds * 1000 : new Date(v || 0).getTime();
+          return toMillis(b.createdAt) - toMillis(a.createdAt);
+        });
+        setOrders(list);
+      }, (err) => console.warn("Superadmin orders sync error:", err));
+
+      return () => unsubOrders();
     }
   }, [superAdminUser]);
 
@@ -201,12 +212,7 @@ const SuperAdmin = () => {
           </>
         );
       case "Orders":
-        return (
-          <>
-            <MetricCards cards={cards} />
-            <OrdersTable orders={orderRows} />
-          </>
-        );
+        return <OrdersTable orders={orders} />;
       case "Users":
         return (
           <>
@@ -240,7 +246,7 @@ const SuperAdmin = () => {
                 onDeleteProduct={handleDeleteProduct}
                 onRefresh={loadProducts}
               />
-              <OrdersTable orders={orderRows} />
+              <OrdersTable orders={orders} />
             </div>
           </>
         );

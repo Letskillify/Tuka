@@ -263,12 +263,7 @@ const Admin = () => {
       case "HomepageManager":
         return <HomepageManager />;
       case "Orders":
-        return (
-          <>
-            <MetricCards cards={cards} />
-            <OrdersTable orders={orders} />
-          </>
-        );
+        return <OrdersTable orders={orders} isDarkMode={isDarkMode} />;
       case "Categories":
         return <CategorySubcategoryManager initialTab="Categories" />;
       case "SubCategories":

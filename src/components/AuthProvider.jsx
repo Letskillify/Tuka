@@ -197,23 +197,28 @@ const AuthProvider = ({ children }) => {
       const gUser = result.user;
       
       const userRef = doc(db, "users", gUser.uid);
-      const snap = await getDoc(userRef);
+      try {
+        const snap = await getDoc(userRef);
 
-      if (!snap.exists()) {
-        await setDoc(userRef, {
-          uid: gUser.uid,
-          email: gUser.email,
-          displayName: gUser.displayName,
-          photoURL: gUser.photoURL,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          authProvider: "google",
-          emailVerified: true
-        });
+        if (!snap.exists()) {
+          await setDoc(userRef, {
+            uid: gUser.uid,
+            email: gUser.email,
+            displayName: gUser.displayName,
+            photoURL: gUser.photoURL,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            authProvider: "google",
+            emailVerified: true
+          });
+        }
+      } catch (firestoreErr) {
+        console.warn("[AuthProvider] Firestore user doc sync warning:", firestoreErr);
       }
 
       return gUser;
     } catch (err) {
+      console.error("[AuthProvider] Google Sign-In error:", err);
       throw new Error(formatAuthError(err));
     }
   };
@@ -267,17 +272,47 @@ const AuthProvider = ({ children }) => {
   };
 
   const formatAuthError = (err) => {
+    if (!err) return "Authentication failed.";
+    const code = err.code || "";
     const msg = err.message || "";
-    if (msg.includes("auth/user-not-found") || msg.includes("auth/wrong-password") || msg.includes("auth/invalid-credential")) {
+
+    if (code === "auth/popup-closed-by-user") {
+      return "Google sign-in was cancelled (popup closed).";
+    }
+    if (code === "auth/popup-blocked") {
+      return "Pop-up was blocked by your browser. Please allow popups for this site.";
+    }
+    if (code === "auth/unauthorized-domain") {
+      return "Domain unauthorized: Add localhost / your domain to Firebase Console > Authentication > Settings > Authorized domains.";
+    }
+    if (code === "auth/operation-not-allowed") {
+      return "Google Sign-In is disabled: Enable 'Google' in Firebase Console > Authentication > Sign-in method.";
+    }
+    if (code === "auth/account-exists-with-different-credential") {
+      return "An account already exists with this email using another sign-in method.";
+    }
+    if (code === "auth/network-request-failed" || msg.includes("network-request-failed")) {
+      return "Network error. Please check your internet connection and try again.";
+    }
+    if (code === "auth/user-disabled") {
+      return "This account has been disabled. Please contact support.";
+    }
+    if (msg.includes("auth/user-not-found") || msg.includes("auth/wrong-password") || msg.includes("auth/invalid-credential") || code === "auth/invalid-credential") {
       return "Invalid email or password.";
     }
-    if (msg.includes("auth/email-already-in-use")) {
+    if (msg.includes("auth/email-already-in-use") || code === "auth/email-already-in-use") {
       return "An account with this email already exists.";
     }
-    if (msg.includes("auth/too-many-requests")) {
+    if (msg.includes("auth/too-many-requests") || code === "auth/too-many-requests") {
       return "Too many failed attempts. Please try again later.";
     }
-    return msg.replace("Firebase: ", "").replace(/Error \(auth\/[^)]+\)\.?/, "").trim() || "Authentication failed.";
+
+    const cleaned = msg
+      .replace(/^Firebase:\s*/i, "")
+      .replace(/^Error\s*\([^)]+\):?\s*/i, "")
+      .trim();
+
+    return cleaned || code || "Authentication failed. Please try again.";
   };
 
   const value = { 
