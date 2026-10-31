@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../components/useAuth';
 import { db } from '../components/Firebase';
-import { doc, setDoc, deleteDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection, onSnapshot, getDocs, writeBatch } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 const StoreContext = createContext(null);
@@ -191,7 +191,6 @@ export const StoreProvider = ({ children }) => {
 
   const clearCart = async () => {
     try {
-      const { getDocs, writeBatch } = await import("firebase/firestore");
       const cartRef = collection(db, "carts", activeId, "items");
       const snap = await getDocs(cartRef);
       if (!snap.empty) {

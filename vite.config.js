@@ -97,5 +97,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss(), apiDevServerPlugin()],
+    build: {
+      chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor-ui': ['lucide-react', 'framer-motion']
+          }
+        }
+      }
+    }
   };
 });

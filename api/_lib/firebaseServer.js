@@ -53,7 +53,10 @@ try {
     if (!getAdminApps().length) {
         if (process.env.FIREBASE_SERVICE_ACCOUNT) {
             try {
-                const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                let sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                if (sa && sa.private_key) {
+                    sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+                }
                 app = initAdminApp({ credential: cert(sa), projectId: process.env.VITE_FIREBASE_PROJECT_ID });
             } catch (e) {
                 app = initAdminApp({ projectId: process.env.VITE_FIREBASE_PROJECT_ID });

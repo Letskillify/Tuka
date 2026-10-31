@@ -18,7 +18,8 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  deleteDoc
 } from "firebase/firestore";
 import { AuthContext } from "./useAuth";
 
@@ -258,7 +259,6 @@ const AuthProvider = ({ children }) => {
   const deleteAccount = async () => {
     if (!user?.uid) return;
     try {
-      const { deleteDoc } = await import("firebase/firestore");
       await deleteDoc(doc(db, "users", user.uid));
       if (auth.currentUser) {
         await auth.currentUser.delete();
