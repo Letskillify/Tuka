@@ -128,7 +128,11 @@ const Footer = () => {
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
                     <Phone size={16} className="text-[#b13896]" />
                   </div>
-                  <a href="tel:+917400444522" className="font-semibold text-slate-900 tracking-normal hover:text-[#b13896] transition-colors">+91 7400444522</a>
+                  <div className="flex flex-wrap items-center gap-x-2">
+                    <a href="tel:+919831133937" className="font-semibold text-slate-900 tracking-normal hover:text-[#b13896] transition-colors">+91 9831133937</a>
+                    <span className="text-slate-400">/</span>
+                    <a href="tel:+917400444522" className="font-semibold text-slate-900 tracking-normal hover:text-[#b13896] transition-colors">+91 7400444522</a>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
@@ -142,8 +146,20 @@ const Footer = () => {
                   </div>
                   <span className="font-medium text-slate-800">Bengal Weaving Cluster, West Bengal, India</span>
                 </div>
-                <div className="text-xs text-slate-500 pt-1 font-medium">
-                  Legal Entity Name: <span className="font-bold text-slate-800">DIPANWITA PATRA</span>
+                {/* Legal Entity & KYC Verification Details */}
+                <div className="pt-2.5 border-t border-slate-200/80 space-y-1 text-xs text-slate-600">
+                  <div>
+                    <span className="text-slate-500">Legal Entity Name: </span>
+                    <span className="font-bold text-slate-900">DIPANWITA PATRA</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Official Phone: </span>
+                    <a href="tel:+919831133937" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">+91 9831133937</a>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Official Email: </span>
+                    <a href="mailto:tukasupport@gmail.com" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">tukasupport@gmail.com</a>
+                  </div>
                 </div>
               </div>
 
@@ -195,8 +211,8 @@ const Footer = () => {
 
           {/* ── Bottom Bar (Copyright & Policy Links) ───────────────────────── */}
           <div className="pt-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 font-sans">
-            <p className="text-center sm:text-left font-normal">
-              © {currentYear} House of Tuka (Legal Entity: DIPANWITA PATRA). All Rights Reserved.
+            <p className="text-center sm:text-left font-normal text-xs sm:text-sm">
+              © {currentYear} House of Tuka | Legal Entity: <span className="font-semibold text-slate-800">DIPANWITA PATRA</span> | Phone: <a href="tel:+919831133937" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">+91 9831133937</a> | Email: <a href="mailto:tukasupport@gmail.com" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">tukasupport@gmail.com</a>
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 font-medium">

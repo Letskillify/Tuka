@@ -95,12 +95,18 @@ const Contact = () => {
                       Call or WhatsApp
                     </span>
                     <a
+                      href="tel:+919831133937"
+                      className="text-base font-semibold text-slate-900 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
+                    >
+                      +91 9831133937
+                    </a>
+                    <a
                       href="https://wa.me/917400444522"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-base font-semibold text-slate-900 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
+                      className="text-sm font-medium text-slate-600 font-sans tracking-normal hover:text-[#b13896] transition-colors block"
                     >
-                      +91 7400444522
+                      +91 7400444522 (WhatsApp Concierge)
                     </a>
                     <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
                       Mon – Sat, 9:30 AM – 8:30 PM IST
