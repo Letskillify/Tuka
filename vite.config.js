@@ -52,7 +52,7 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/orders') {
             const module = await server.ssrLoadModule('/api/orders/index.js');
             return await module.default(req, res);
-          } else if (pathname === '/api/orders/sync-guest') {
+          } else if (pathname === '/api/orders/sync-guest') { 
             const module = await server.ssrLoadModule('/api/orders/sync-guest.js');
             return await module.default(req, res);
           } else if (pathname === '/api/razorpay/create-order') {
@@ -89,7 +89,7 @@ function apiDevServerPlugin() {
       });
     }
   };
-}
+}                                        
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
