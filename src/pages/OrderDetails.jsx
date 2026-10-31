@@ -48,7 +48,33 @@ const OrderDetails = () => {
 
   // Modals state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [showShiprocketModal, setShowShiprocketModal] = useState(false);
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [liveTracking, setLiveTracking] = useState(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState("");
+
+  const handleOpenTracking = async (orderToTrack) => {
+    const target = orderToTrack || activeOrder;
+    if (!target) return;
+    setShowTrackingModal(true);
+    setTrackingLoading(true);
+    setTrackingError("");
+    setLiveTracking(null);
+
+    const awb = target.awbCode || target.trackingNumber || target.ithinkShipment?.waybill || "";
+    const num = target.orderNumber || target.id || "";
+
+    try {
+      const res = await fetch(`/api/ithink/track?awb=${encodeURIComponent(awb)}&orderNumber=${encodeURIComponent(num)}`);
+      const data = await res.json();
+      setLiveTracking(data);
+    } catch (err) {
+      console.error("Live tracking fetch error:", err);
+      setTrackingError("Failed to fetch live updates from courier network.");
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
 
   // Fetch all orders for logged in user OR guest email
   useEffect(() => {
@@ -133,11 +159,13 @@ const OrderDetails = () => {
     setGuestEmailSubmitted(guestEmailInput.trim().toLowerCase());
   };
 
-  // Shiprocket Tracking URL
-  const getShiprocketUrl = () => {
-    if (!activeOrder) return "https://shiprocket.co/tracking";
-    const awb = activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.orderNumber;
-    return `https://shiprocket.co/tracking/${encodeURIComponent(awb)}`;
+  // iThink Logistics Tracking URL
+  const getTrackingUrl = () => {
+    if (!activeOrder) return "https://ithinklogistics.trackshipment.in/";
+    const awb = activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.ithinkShipment?.waybill;
+    if (activeOrder.trackingUrl) return activeOrder.trackingUrl;
+    if (awb) return `https://ithinklogistics.trackshipment.in/${encodeURIComponent(awb)}`;
+    return `https://ithinklogistics.trackshipment.in/`;
   };
 
   // Filtered orders list by search query (order number or product name)
@@ -160,7 +188,7 @@ const OrderDetails = () => {
       {/* Breadcrumb Header */}
       <Breadcrumb
         title="My Orders & Tax Invoices"
-        subtitle="Select any order to view itemized breakdown, download tax invoices, and track live Shiprocket dispatches."
+        subtitle="Select any order to view itemized breakdown, download tax invoices, and track live iThink Logistics shipments."
         bgImage="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1600"
         links={[
           { name: "Home", href: "/" },
@@ -448,7 +476,7 @@ const OrderDetails = () => {
                       <div className="space-y-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-900 block">Dispatch Actions</span>
                         <p className="text-xs text-slate-500 leading-relaxed font-light">
-                          Need to print an official GST tax invoice or check real-time courier tracking via Shiprocket?
+                          Print an official GST tax invoice or view real-time courier checkpoints via iThink Logistics.
                         </p>
                       </div>
 
@@ -462,10 +490,10 @@ const OrderDetails = () => {
                         </button>
 
                         <button
-                          onClick={() => setShowShiprocketModal(true)}
-                          className="w-full py-3 px-4 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-between shadow-xs cursor-pointer"
+                          onClick={() => handleOpenTracking(activeOrder)}
+                          className="w-full py-3 px-4 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-between shadow-xs cursor-pointer"
                         >
-                          <span className="flex items-center gap-2"><Truck size={15} /> Track via Shiprocket</span>
+                          <span className="flex items-center gap-2"><Truck size={15} /> Track via iThink Logistics</span>
                           <ExternalLink size={14} />
                         </button>
                       </div>
@@ -601,73 +629,167 @@ const OrderDetails = () => {
         )}
       </AnimatePresence>
 
-      {/* ── SHIPROCKET LIVE TRACKING MODAL ── */}
+      {/* ── ITHINK LOGISTICS LIVE TRACKING MODAL ── */}
       <AnimatePresence>
-        {showShiprocketModal && activeOrder && (
+        {showTrackingModal && activeOrder && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center border-b pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#7C3AED]/10 text-[#7C3AED] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-[#b13896]/10 text-[#b13896] flex items-center justify-center">
                     <Truck size={22} />
                   </div>
                   <div>
-                    <h3 className="font-serif text-xl font-bold text-slate-900">Shiprocket Courier Tracking</h3>
-                    <p className="text-xs text-slate-400">Live API Dispatch &amp; Transit Checkpoints</p>
+                    <h3 className="font-serif text-xl font-bold text-slate-900">iThink Logistics Live Tracker</h3>
+                    <p className="text-xs text-slate-400">Real-Time Courier Transit &amp; Checkpoints</p>
                   </div>
                 </div>
-                <button onClick={() => setShowShiprocketModal(false)} className="text-slate-400 hover:text-slate-700">
+                <button onClick={() => setShowTrackingModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl flex justify-between items-center text-xs">
-                  <div>
-                    <span className="font-bold text-slate-500 uppercase block text-[10px]">AWB Tracking Code</span>
-                    <span className="font-mono font-bold text-[#7C3AED] text-sm">
-                      {activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.orderNumber}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-slate-500 uppercase block text-[10px]">Courier Partner</span>
-                    <span className="font-semibold text-slate-900">Shiprocket Express</span>
-                  </div>
+              {trackingLoading ? (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-8 h-8 border-3 border-[#b13896]/20 border-t-[#b13896] rounded-full animate-spin mx-auto" />
+                  <p className="text-xs text-slate-500 font-medium">Contacting iThink Logistics courier network...</p>
                 </div>
-
-                <div className="space-y-3 pt-2">
-                  {[
-                    { label: "Order Received & Verified", time: "Completed", done: true },
-                    { label: "Picked Up by Shiprocket Logistics", time: "In Transit", done: true },
-                    { label: "Arrived at Regional Sorting Hub", time: "In Transit", done: ['shipped', 'out_for_delivery', 'delivered'].includes(status) },
-                    { label: "Out for Doorstep Delivery", time: "Destination City", done: ['out_for_delivery', 'delivered'].includes(status) },
-                    { label: "Delivered to Customer", time: "Final Step", done: status === 'delivered' }
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3 text-xs">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                        step.done ? "bg-[#7C3AED] text-white" : "bg-slate-100 text-slate-300"
-                      }`}>
-                        <CheckCircle2 size={14} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-bold ${step.done ? "text-slate-900" : "text-slate-400"}`}>{step.label}</p>
-                        <p className="text-[10px] text-slate-400">{step.time}</p>
-                      </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Status Banner */}
+                  <div className="p-4 bg-rose-50/70 border border-rose-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                    <div>
+                      <span className="font-bold text-slate-500 uppercase block text-[10px] tracking-wider">Courier Status</span>
+                      <span className="font-bold text-[#b13896] text-sm">
+                        {liveTracking?.currentStatus || (activeOrder.awbCode ? "Manifest Generated" : "Preparing Shipment")}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="sm:text-right">
+                      <span className="font-bold text-slate-500 uppercase block text-[10px] tracking-wider">Courier Partner</span>
+                      <span className="font-semibold text-slate-900">
+                        {liveTracking?.courier || activeOrder.courierName || "iThink Express (Delhivery/Partner)"}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="pt-2 flex gap-3">
+                  {/* Waybill / AWB & Expected Delivery */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+                      <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">AWB Tracking Code</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs">
+                        {liveTracking?.awb || activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.orderNumber}
+                      </span>
+                    </div>
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+                      <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Expected Delivery</span>
+                      <span className="font-semibold text-slate-900 text-xs">
+                        {liveTracking?.expectedDeliveryDate
+                          ? new Date(liveTracking.expectedDeliveryDate).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                          : "3 to 5 Business Days"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {trackingError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
+                      {trackingError}
+                    </div>
+                  )}
+
+                  {/* Checkpoints Timeline */}
+                  <div className="space-y-3 pt-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Live Transit Checkpoints
+                    </span>
+
+                    {Array.isArray(liveTracking?.scans) && liveTracking.scans.length > 0 ? (
+                      <div className="space-y-3 border-l-2 border-[#b13896]/30 ml-3 pl-4">
+                        {liveTracking.scans.map((scan, i) => (
+                          <div key={i} className="relative text-xs space-y-0.5">
+                            <div className="absolute -left-[23px] top-0.5 w-3 h-3 rounded-full bg-[#b13896] border-2 border-white shadow-xs" />
+                            <div className="flex justify-between items-baseline">
+                              <p className="font-bold text-slate-900">{scan.status || "Checkpoint Scan"}</p>
+                              {scan.dateTime && (
+                                <span className="text-[10px] text-slate-400">
+                                  {new Date(scan.dateTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                </span>
+                              )}
+                            </div>
+                            {scan.location && (
+                              <p className="text-[11px] text-slate-600 font-medium">
+                                Location: {scan.location}
+                              </p>
+                            )}
+                            {scan.remark && (
+                              <p className="text-[10px] text-slate-400 italic">
+                                {scan.remark}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-3 pt-1">
+                        {[
+                          { label: "Order Received & Verified", time: "Completed", done: true },
+                          { label: "Manifest Generated in iThink Logistics", time: activeOrder.awbCode ? "Manifest Ready" : "In Progress", done: true },
+                          { label: "Courier Pickup from Hub (Bengal)", time: "Pending Pickup", done: ['shipped', 'out_for_delivery', 'delivered'].includes(status) },
+                          { label: "In Transit via National Air/Surface", time: "Regional Sorting", done: ['shipped', 'out_for_delivery', 'delivered'].includes(status) },
+                          { label: "Out for Doorstep Delivery", time: "Destination Hub", done: ['out_for_delivery', 'delivered'].includes(status) },
+                          { label: "Delivered to Customer", time: "Final Delivery", done: status === 'delivered' }
+                        ].map((step, i) => (
+                          <div key={i} className="flex items-center gap-3 text-xs">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                              step.done ? "bg-[#b13896] text-white" : "bg-slate-100 text-slate-300"
+                            }`}>
+                              <CheckCircle2 size={14} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold ${step.done ? "text-slate-900" : "text-slate-400"}`}>{step.label}</p>
+                              <p className="text-[10px] text-slate-400">{step.time}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row gap-3">
                 <a
-                  href={getShiprocketUrl()}
+                  href={liveTracking?.trackingUrl || getTrackingUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 py-3.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold uppercase tracking-wider rounded-2xl transition-all shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider rounded-2xl transition-all shadow-md flex items-center justify-center gap-2"
                 >
-                  <span>Open Shiprocket Tracking Portal</span>
+                  <span>Open iThink Tracking Portal</span>
                   <ExternalLink size={14} />
                 </a>
+
+                {(activeOrder.awbCode || liveTracking?.awb) && (
+                  <button
+                    onClick={async () => {
+                      const code = liveTracking?.awb || activeOrder.awbCode;
+                      try {
+                        const res = await fetch(`/api/ithink/shipping-label?awb=${encodeURIComponent(code)}`);
+                        const lData = await res.json();
+                        if (lData?.data || lData?.file_url || lData?.pdf_url) {
+                          window.open(lData.data || lData.file_url || lData.pdf_url, '_blank');
+                        } else {
+                          window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                        }
+                      } catch (e) {
+                        window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                      }
+                    }}
+                    className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Download size={14} />
+                    <span>Shipping Label</span>
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>

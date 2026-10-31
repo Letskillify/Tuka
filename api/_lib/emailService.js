@@ -107,6 +107,21 @@ const generateCustomerEmailHtml = (order) => {
                     <div style="font-size: 14px; font-weight: 700; color: #161114; margin-top: 2px;">${order.paymentMethod === 'online' ? 'Online Payment (Paid)' : 'Cash on Delivery'}</div>
                   </td>
                 </tr>
+                ${order.awbCode ? `
+                <tr>
+                  <td colspan="2" style="border-top: 1px solid #f0e6ee; padding-top: 12px; margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div>
+                        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Courier Dispatch</div>
+                        <div style="font-size: 13px; font-weight: 700; color: #161114;">${order.courierName || 'iThink Logistics Partner'} — AWB: <span style="font-family: monospace; color: #b13896;">${order.awbCode}</span></div>
+                      </div>
+                      ${order.trackingUrl ? `
+                      <a href="${order.trackingUrl}" target="_blank" style="display: inline-block; padding: 6px 14px; background-color: #b13896; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Track Shipment &rarr;</a>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+                ` : ''}
               </table>
             </td>
           </tr>

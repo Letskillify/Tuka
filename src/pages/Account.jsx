@@ -30,7 +30,8 @@ import {
   CreditCard as CardIcon,
   ChevronDown,
   ArrowRight,
-  Settings
+  Settings,
+  ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -386,13 +387,13 @@ const Account = () => {
 
     try {
       const queryParam = trackWaybillInput.trim();
-      const res = await fetch(`/api/delhivery/track-shipment?waybill=${encodeURIComponent(queryParam)}&ref_ids=${encodeURIComponent(queryParam)}`);
+      const res = await fetch(`/api/ithink/track?awb=${encodeURIComponent(queryParam)}&orderNumber=${encodeURIComponent(queryParam)}`);
       const data = await res.json();
 
-      if (data.ShipmentData && data.ShipmentData.length > 0) {
-        setTrackingResult(data.ShipmentData[0].Shipment);
+      if (data && (data.success || data.awb || data.scans?.length > 0)) {
+        setTrackingResult(data);
       } else {
-        setTrackingError("No live shipment tracking updates found for this Waybill or Order Number.");
+        setTrackingError(data.message || data.error || "No live shipment tracking updates found for this Waybill or Order Number.");
       }
     } catch (err) {
       setTrackingError("Failed to fetch live shipment data: " + err.message);
@@ -815,8 +816,8 @@ const Account = () => {
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e6ded8] shadow-xs space-y-6">
                   <div className="border-b border-slate-100 pb-4">
-                    <h3 className="text-2xl font-serif font-bold text-[#161114]">Delhivery Express Live Tracker</h3>
-                    <p className="text-xs text-slate-400 mt-1">Enter your Order ID or Delhivery AWB Waybill number</p>
+                    <h3 className="text-2xl font-serif font-bold text-[#161114]">iThink Logistics Real-Time Tracker</h3>
+                    <p className="text-xs text-slate-400 mt-1">Enter your Order Reference Number or Courier AWB Waybill</p>
                   </div>
 
                   <form onSubmit={handleFetchTracking} className="flex flex-col sm:flex-row gap-3">
@@ -827,7 +828,7 @@ const Account = () => {
                         required
                         value={trackWaybillInput}
                         onChange={(e) => setTrackWaybillInput(e.target.value)}
-                        placeholder="Enter Order ID or Delhivery AWB (e.g. ORD_12345)"
+                        placeholder="Enter Order Number or AWB (e.g. ORD-123456 or 1369010468790)"
                         className="w-full pl-12 pr-4 py-3.5 bg-[#F8F4EF] border border-[#e6ded8] rounded-xl text-xs font-semibold focus:border-[#b13896] outline-none"
                       />
                     </div>
@@ -848,28 +849,82 @@ const Account = () => {
 
                   {trackingResult && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 rounded-2xl bg-[#161114] text-white space-y-5">
-                      <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-4">
                         <div>
-                          <span className="text-[10px] font-bold text-[#f4cfeb] uppercase tracking-widest">Tracking Status</span>
-                          <h4 className="text-xl font-serif text-white mt-1">{trackingResult.Status?.Status || "In Transit"}</h4>
+                          <span className="text-[10px] font-bold text-[#f4cfeb] uppercase tracking-widest">
+                            Courier Partner: {trackingResult.courier || "iThink Express (Delhivery/Partner)"}
+                          </span>
+                          <h4 className="text-xl font-serif text-white mt-1">
+                            {trackingResult.currentStatus || trackingResult.Status?.Status || "In Transit"}
+                          </h4>
                         </div>
-                        <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-                          Active
+                        <span className="px-3.5 py-1 rounded-full bg-[#b13896] text-white text-xs font-bold shadow-md">
+                          Active Dispatch
                         </span>
                       </div>
 
                       <div className="grid sm:grid-cols-2 gap-3 text-xs">
                         <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                          <span className="text-white/40 block mb-1 uppercase font-bold text-[9px]">AWB Waybill</span>
-                          <span className="font-mono text-white font-bold">{trackingResult.AWB || "N/A"}</span>
+                          <span className="text-white/40 block mb-1 uppercase font-bold text-[9px]">AWB Tracking Code</span>
+                          <span className="font-mono text-white font-bold">{trackingResult.awb || trackingResult.AWB || "N/A"}</span>
                         </div>
                         <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                          <span className="text-white/40 block mb-1 uppercase font-bold text-[9px]">Last Status Update</span>
+                          <span className="text-white/40 block mb-1 uppercase font-bold text-[9px]">Expected Delivery</span>
                           <span className="text-white font-bold">
-                            {trackingResult.Status?.StatusDateTime ? new Date(trackingResult.Status.StatusDateTime).toLocaleString() : new Date().toLocaleString()}
+                            {trackingResult.expectedDeliveryDate
+                              ? new Date(trackingResult.expectedDeliveryDate).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                              : "3 to 5 Business Days"}
                           </span>
                         </div>
                       </div>
+
+                      {/* Scans timeline */}
+                      {Array.isArray(trackingResult.scans) && trackingResult.scans.length > 0 && (
+                        <div className="space-y-3 pt-2 border-t border-white/10">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white/50 block">
+                            Real-Time Courier Checkpoints
+                          </span>
+                          <div className="space-y-3 border-l-2 border-[#b13896]/40 ml-2 pl-4">
+                            {trackingResult.scans.map((scan, i) => (
+                              <div key={i} className="relative text-xs space-y-0.5">
+                                <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#b13896]" />
+                                <div className="flex justify-between items-baseline">
+                                  <span className="font-bold text-white">{scan.status || "Checkpoint Scan"}</span>
+                                  {scan.dateTime && (
+                                    <span className="text-[10px] text-white/50">
+                                      {new Date(scan.dateTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                    </span>
+                                  )}
+                                </div>
+                                {scan.location && (
+                                  <p className="text-[11px] text-white/70">
+                                    Location: {scan.location}
+                                  </p>
+                                )}
+                                {scan.remark && (
+                                  <p className="text-[10px] text-white/40 italic">
+                                    {scan.remark}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {trackingResult.trackingUrl && (
+                        <div className="pt-2">
+                          <a
+                            href={trackingResult.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-bold text-[#f4cfeb] hover:text-white underline underline-offset-4"
+                          >
+                            <span>Open Official iThink Tracking Page</span>
+                            <ExternalLink size={13} />
+                          </a>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </div>

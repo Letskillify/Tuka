@@ -253,11 +253,11 @@ const Checkout = () => {
     setLoading(true);
 
     try {
-      // Check Delhivery Serviceability
-      const pinRes = await fetch(`/api/delhivery/check-pincode?pincode=${formData.pincode}`);
+      // Check iThink Logistics Courier Serviceability
+      const pinRes = await fetch(`/api/ithink/check-pincode?pincode=${formData.pincode}&paymentMethod=${paymentMethod}`);
       const pinData = await pinRes.json();
 
-      if (pinRes.ok && pinData && pinData.is_serviceable === false) {
+      if (pinRes.ok && pinData && pinData.is_serviceable === false && pinData.isServiceable === false) {
         setErrorMessage(`Sorry, delivery is not available for the pincode ${formData.pincode}.`);
         setLoading(false);
         return;

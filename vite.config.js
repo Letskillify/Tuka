@@ -67,6 +67,18 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/delhivery/track-shipment') {
             const module = await server.ssrLoadModule('/api/delhivery/track-shipment.js');
             return await module.default(req, res);
+          } else if (pathname === '/api/ithink/track') {
+            const module = await server.ssrLoadModule('/api/ithink/track.js');
+            return await module.default(req, res);
+          } else if (pathname === '/api/ithink/check-pincode') {
+            const module = await server.ssrLoadModule('/api/ithink/check-pincode.js');
+            return await module.default(req, res);
+          } else if (pathname === '/api/ithink/create-shipment') {
+            const module = await server.ssrLoadModule('/api/ithink/create-shipment.js');
+            return await module.default(req, res);
+          } else if (pathname === '/api/ithink/shipping-label') {
+            const module = await server.ssrLoadModule('/api/ithink/shipping-label.js');
+            return await module.default(req, res);
           }
         } catch (err) {
           console.error('[ViteDevAPI] Error handling', pathname, ':', err);

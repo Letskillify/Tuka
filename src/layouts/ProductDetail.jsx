@@ -41,18 +41,17 @@ const ProductDetail = () => {
     setCheckingPincode(true);
     setDeliveryMsg(null);
     try {
-      const response = await fetch(`/api/delhivery/check-pincode?pincode=${pincode}`);
+      const response = await fetch(`/api/ithink/check-pincode?pincode=${pincode}`);
       const data = await response.json();
-      if (response.ok && data.is_serviceable) {
-        // Delhivery does not always return raw delivery time from pin-codes API directly,
-        // so we'll simulate a 3-5 days EDD on valid serviceable pin code.
-        const days = Math.floor(Math.random() * 2) + 3;
-        const delDate = new Date();
-        delDate.setDate(delDate.getDate() + days);
-        const formattedDate = delDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
-        setDeliveryMsg(`Free Delivery by ${formattedDate}`);
+      if (response.ok && (data.isServiceable || data.is_serviceable)) {
+        if (data.maxEdd) {
+          const formattedDate = new Date(data.maxEdd).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+          setDeliveryMsg(`Express Delivery by ${formattedDate} (${data.expectedDays || "3-5 Days"})`);
+        } else {
+          setDeliveryMsg(`Free Express Delivery in ${data.expectedDays || "3 to 5 Days"}`);
+        }
       } else {
-        setDeliveryMsg('Delivery not available for this pincode.');
+        setDeliveryMsg('Delivery currently not available for this pincode.');
       }
     } catch (error) {
       setDeliveryMsg('Error checking pincode.');

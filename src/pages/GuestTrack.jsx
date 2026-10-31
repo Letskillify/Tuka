@@ -221,6 +221,40 @@ const GuestTrack = () => {
               {/* Delivery Address & Sync Account */}
               <div className="lg:col-span-4 space-y-6">
                 
+                {/* iThink Logistics Courier Dispatch */}
+                <div className="bg-white rounded-[32px] p-6 border border-[#e5d5df]/60 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#b13896]">
+                      <Truck size={16} />
+                      <span>Courier Dispatch</span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {order.shippingStatus || "iThink Logistics"}
+                    </span>
+                  </div>
+
+                  <div className="text-xs space-y-2">
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                      <span className="text-slate-400 font-medium">Carrier Partner</span>
+                      <span className="font-semibold text-slate-800">{order.courierName || "iThink Logistics Partner"}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                      <span className="text-slate-400 font-medium">AWB Waybill</span>
+                      <span className="font-mono font-bold text-[#b13896]">{order.awbCode || order.trackingNumber || "Pending Courier Assignment"}</span>
+                    </div>
+                  </div>
+
+                  <a
+                    href={order.trackingUrl || (order.awbCode ? `https://ithinklogistics.trackshipment.in/${order.awbCode}` : `https://ithinklogistics.trackshipment.in/`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 rounded-xl bg-[#F8F4EF] hover:bg-[#e5d5df]/50 text-slate-900 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 border border-[#e5d5df] transition-all"
+                  >
+                    <span>Track Live on iThink Portal</span>
+                    <ArrowRight size={14} />
+                  </a>
+                </div>
+
                 {/* Destination Atelier */}
                 <div className="bg-white rounded-[32px] p-6 border border-[#e5d5df]/60 shadow-sm space-y-4">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#b13896]">

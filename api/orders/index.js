@@ -14,6 +14,7 @@ import {
   serverTimestamp
 } from "../_lib/firebaseServer.js";
 import { sendOrderEmails } from "../_lib/emailService.js";
+import { createOrderShipment } from "../_lib/ithinkLogistics.js";
 
 const getDb = () => clientDb;
 
@@ -365,13 +366,75 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6. Send Emails (Nodemailer)
+    // 6. iThink Logistics Courier Dispatch
+    let ithinkShipment = null;
+    let awbCode = null;
+    let courierName = null;
+    let trackingUrl = null;
+
+    try {
+      console.log(`[Orders] Creating iThink Logistics shipment for order ${orderNumber}...`);
+      const shipmentResult = await createOrderShipment(orderData);
+
+      if (shipmentResult.success && shipmentResult.waybill) {
+        awbCode = shipmentResult.waybill;
+        courierName = shipmentResult.logisticName || "iThink Express Courier";
+        trackingUrl = shipmentResult.trackingUrl || `https://ithinklogistics.trackshipment.in/${awbCode}`;
+        ithinkShipment = {
+          waybill: awbCode,
+          refnum: shipmentResult.refnum || orderNumber,
+          logisticName: courierName,
+          trackingUrl,
+          dispatchedAt: new Date().toISOString()
+        };
+
+        const shippingUpdates = {
+          shippingProvider: "iThink Logistics",
+          shippingStatus: "Manifested",
+          awbCode,
+          trackingNumber: awbCode,
+          courierName,
+          trackingUrl,
+          ithinkShipment
+        };
+
+        orderData.shippingProvider = "iThink Logistics";
+        orderData.shippingStatus = "Manifested";
+        orderData.awbCode = awbCode;
+        orderData.trackingNumber = awbCode;
+        orderData.courierName = courierName;
+        orderData.trackingUrl = trackingUrl;
+        orderData.ithinkShipment = ithinkShipment;
+
+        await updateDoc(doc(db, "orders", orderId), shippingUpdates);
+        if (finalUserId) {
+          try {
+            await updateDoc(doc(db, "users", finalUserId, "orders", orderId), shippingUpdates);
+          } catch (e) {}
+        }
+      } else {
+        console.warn("[Orders] iThink shipment creation pending/notice:", shipmentResult.error);
+        const pendingUpdates = {
+          shippingProvider: "iThink Logistics",
+          shippingStatus: "Processing",
+          iThinkNotice: shipmentResult.error || "Awaiting courier manifest assignment"
+        };
+        await updateDoc(doc(db, "orders", orderId), pendingUpdates);
+      }
+    } catch (shipErr) {
+      console.error("[Orders] Error booking iThink Logistics courier:", shipErr);
+    }
+
+    // 7. Send Emails (Nodemailer)
     let emailStatus = { customer: "skipped", admin: "skipped" };
     try {
       emailStatus = await sendOrderEmails({
         ...orderData,
         orderId,
         orderNumber,
+        awbCode,
+        courierName,
+        trackingUrl,
         createdAt: new Date().toISOString()
       });
       await updateDoc(doc(db, "orders", orderId), { emailStatus });
@@ -395,6 +458,9 @@ export default async function handler(req, res) {
       orderId,
       orderNumber,
       guestAccessToken,
+      awbCode,
+      courierName,
+      trackingUrl,
       order: {
         ...orderData,
         emailStatus

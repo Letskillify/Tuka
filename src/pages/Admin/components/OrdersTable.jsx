@@ -91,13 +91,39 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
   const [isSavingTracking, setIsSavingTracking] = useState(false);
+  const [isBookingIThink, setIsBookingIThink] = useState(false);
 
   // Open modal with order data initialized
   const handleOpenOrderModal = (order) => {
     setSelectedOrder(order);
-    setTrackingCourier(order.courierName || order.shippingCarrier || "Delhivery");
-    setTrackingNumber(order.trackingNumber || order.awbNumber || "");
+    setTrackingCourier(order.courierName || order.shippingCarrier || "iThink Express");
+    setTrackingNumber(order.trackingNumber || order.awbNumber || order.awbCode || "");
     setTrackingUrl(order.trackingUrl || "");
+  };
+
+  const handleBookIThinkShipment = async (order) => {
+    if (!order) return;
+    setIsBookingIThink(true);
+    try {
+      const res = await fetch("/api/ithink/create-shipment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, order })
+      });
+      const data = await res.json();
+      if (data.success && data.waybill) {
+        setTrackingNumber(data.waybill);
+        setTrackingCourier(data.logisticName || "iThink Express Courier");
+        setTrackingUrl(data.trackingUrl || `https://ithinklogistics.trackshipment.in/${data.waybill}`);
+        showToast(`Dispatched via iThink Logistics! AWB: ${data.waybill}`);
+      } else {
+        showToast(data.error || "iThink booking notice: Awaiting manifest approval.");
+      }
+    } catch (e) {
+      showToast("Failed to book iThink shipment: " + e.message);
+    } finally {
+      setIsBookingIThink(false);
+    }
   };
 
   const showToast = (msg) => {
@@ -1031,14 +1057,57 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <p className="text-[11px] text-slate-400">
-                      Saving tracking details will also notify the customer on their order details screen.
-                    </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => handleBookIThinkShipment(selectedOrder)}
+                        disabled={isBookingIThink}
+                        className="px-4 py-2 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {isBookingIThink ? <Loader2 size={13} className="animate-spin" /> : <Truck size={13} />}
+                        <span>Book with iThink Logistics</span>
+                      </button>
+
+                      {(trackingNumber || selectedOrder.awbCode || selectedOrder.trackingNumber) && (
+                        <>
+                          <button
+                            onClick={async () => {
+                              const code = trackingNumber || selectedOrder.awbCode || selectedOrder.trackingNumber;
+                              try {
+                                const res = await fetch(`/api/ithink/shipping-label?awb=${encodeURIComponent(code)}`);
+                                const lData = await res.json();
+                                if (lData?.data || lData?.file_url || lData?.pdf_url) {
+                                  window.open(lData.data || lData.file_url || lData.pdf_url, '_blank');
+                                } else {
+                                  window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                                }
+                              } catch (e) {
+                                window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                              }
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                          >
+                            <FileText size={13} />
+                            <span>Print Label</span>
+                          </button>
+
+                          <a
+                            href={trackingUrl || `https://ithinklogistics.trackshipment.in/${trackingNumber || selectedOrder.awbCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                          >
+                            <ExternalLink size={13} />
+                            <span>Track Live</span>
+                          </a>
+                        </>
+                      )}
+                    </div>
+
                     <button
                       onClick={handleSaveTracking}
                       disabled={isSavingTracking}
-                      className="px-4 py-2 rounded-xl bg-[#161114] hover:bg-[#b13896] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl bg-[#161114] hover:bg-[#b13896] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
                     >
                       {isSavingTracking && <Loader2 size={13} className="animate-spin" />}
                       <span>Save Tracking</span>
