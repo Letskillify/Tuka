@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/api/delhivery/:action*",
+      "destination": "/api/ithink/:action*"
+    },
+    {
+      "source": "/api/orders/sync-guest",
+      "destination": "/api/orders?action=sync-guest"
+    },
+    {
+      "source": "/api/orders/track-guest",
+      "destination": "/api/orders?action=track-guest"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },

@@ -49,11 +49,10 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/set-password') {
             const module = await server.ssrLoadModule('/api/set-password.js');
             return await module.default(req, res);
-          } else if (pathname === '/api/orders') {
+          } else if (pathname === '/api/orders' || pathname.startsWith('/api/orders/')) {
+            if (pathname.includes('/sync-guest')) req.query.action = 'sync-guest';
+            if (pathname.includes('/track-guest')) req.query.action = 'track-guest';
             const module = await server.ssrLoadModule('/api/orders/index.js');
-            return await module.default(req, res);
-          } else if (pathname === '/api/orders/sync-guest') { 
-            const module = await server.ssrLoadModule('/api/orders/sync-guest.js');
             return await module.default(req, res);
           } else if (pathname === '/api/razorpay/create-order') {
             const module = await server.ssrLoadModule('/api/razorpay/create-order.js');
@@ -61,23 +60,13 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/cashfree/create-order') {
             const module = await server.ssrLoadModule('/api/cashfree/create-order.js');
             return await module.default(req, res);
-          } else if (pathname === '/api/delhivery/check-pincode') {
-            const module = await server.ssrLoadModule('/api/delhivery/check-pincode.js');
+          } else if (pathname === '/api/cloudinary/delete') {
+            const module = await server.ssrLoadModule('/api/cloudinary/delete.js');
             return await module.default(req, res);
-          } else if (pathname === '/api/delhivery/track-shipment') {
-            const module = await server.ssrLoadModule('/api/delhivery/track-shipment.js');
-            return await module.default(req, res);
-          } else if (pathname === '/api/ithink/track') {
-            const module = await server.ssrLoadModule('/api/ithink/track.js');
-            return await module.default(req, res);
-          } else if (pathname === '/api/ithink/check-pincode') {
-            const module = await server.ssrLoadModule('/api/ithink/check-pincode.js');
-            return await module.default(req, res);
-          } else if (pathname === '/api/ithink/create-shipment') {
-            const module = await server.ssrLoadModule('/api/ithink/create-shipment.js');
-            return await module.default(req, res);
-          } else if (pathname === '/api/ithink/shipping-label') {
-            const module = await server.ssrLoadModule('/api/ithink/shipping-label.js');
+          } else if (pathname.startsWith('/api/ithink/') || pathname.startsWith('/api/delhivery/')) {
+            const action = pathname.split('/').pop();
+            req.query.action = action;
+            const module = await server.ssrLoadModule('/api/ithink/[action].js');
             return await module.default(req, res);
           }
         } catch (err) {

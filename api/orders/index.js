@@ -27,9 +27,118 @@ const generateOrderNumber = () => {
   return `ORD-${randomStr}`;
 };
 
+async function handleSyncGuest(req, res) {
+  try {
+    const { userId, email } = req.body || {};
+    if (!userId || !email || typeof email !== "string") {
+      return res.status(400).json({ error: "Missing required userId or email parameter." });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const db = getDb();
+    const ordersQ = query(
+      collection(db, "orders"),
+      where("customerEmail", "==", cleanEmail)
+    );
+
+    const snap = await getDocs(ordersQ);
+    if (snap.empty) {
+      return res.status(200).json({ success: true, claimedCount: 0, message: "No matching guest orders found." });
+    }
+
+    let claimedCount = 0;
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      const orderId = docSnap.id;
+
+      if (!data.userId || data.userId === "guest" || data.userId !== userId) {
+        await updateDoc(doc(db, "orders", orderId), {
+          userId: userId,
+          isGuest: false
+        });
+
+        const userOrderRef = doc(db, "users", userId, "orders", orderId);
+        await setDoc(userOrderRef, {
+          ...data,
+          userId: userId,
+          isGuest: false
+        }, { merge: true });
+
+        claimedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      claimedCount,
+      message: `Successfully synchronized ${claimedCount} order(s) to user account.`
+    });
+  } catch (err) {
+    console.error("[SyncGuestOrders] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to sync guest orders." });
+  }
+}
+
+async function handleTrackGuest(req, res) {
+  try {
+    const { orderNumber, accessToken } = req.body || {};
+    if (!orderNumber || typeof orderNumber !== "string" || !accessToken || typeof accessToken !== "string") {
+      return res.status(400).json({ error: "Order number and secure access token are required for guest tracking." });
+    }
+
+    const db = getDb();
+    const q = query(
+      collection(db, "orders"),
+      where("orderNumber", "==", orderNumber.trim().toUpperCase()),
+      where("guestAccessToken", "==", accessToken.trim())
+    );
+
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      return res.status(404).json({ error: "Order not found or invalid security credentials." });
+    }
+
+    const docSnap = snap.docs[0];
+    const data = docSnap.data();
+
+    return res.status(200).json({
+      success: true,
+      order: {
+        orderId: docSnap.id,
+        orderNumber: data.orderNumber,
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        shippingAddress: data.shippingAddress,
+        items: data.items,
+        subtotal: data.subtotal,
+        discount: data.discount,
+        shipping: data.shipping,
+        tax: data.tax,
+        total: data.total,
+        paymentMethod: data.paymentMethod,
+        paymentStatus: data.paymentStatus,
+        orderStatus: data.orderStatus,
+        createdAt: data.createdAt
+      }
+    });
+  } catch (err) {
+    console.error("[TrackGuestOrder] Error:", err);
+    return res.status(500).json({ error: "Failed to retrieve order details." });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const action = req.query?.action || req.body?.action;
+  if (action === "sync-guest") {
+    return handleSyncGuest(req, res);
+  }
+  if (action === "track-guest") {
+    return handleTrackGuest(req, res);
   }
 
   try {
