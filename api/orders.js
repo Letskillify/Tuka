@@ -12,9 +12,9 @@ import {
   getDocs,
   runTransaction,
   serverTimestamp
-} from "../_lib/firebaseServer.js";
-import { sendOrderEmails } from "../_lib/emailService.js";
-import { createOrderShipment } from "../_lib/ithinkLogistics.js";
+} from "./_lib/firebaseServer.js";
+import { sendOrderEmails } from "./_lib/emailService.js";
+import { createOrderShipment } from "./_lib/ithinkLogistics.js";
 
 const getDb = () => clientDb;
 

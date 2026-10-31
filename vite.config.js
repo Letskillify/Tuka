@@ -52,7 +52,7 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/orders' || pathname.startsWith('/api/orders/')) {
             if (pathname.includes('/sync-guest')) req.query.action = 'sync-guest';
             if (pathname.includes('/track-guest')) req.query.action = 'track-guest';
-            const module = await server.ssrLoadModule('/api/orders/index.js');
+            const module = await server.ssrLoadModule('/api/orders.js');
             return await module.default(req, res);
           } else if (pathname === '/api/razorpay/create-order') {
             const module = await server.ssrLoadModule('/api/razorpay/create-order.js');
@@ -66,7 +66,7 @@ function apiDevServerPlugin() {
           } else if (pathname.startsWith('/api/ithink/') || pathname.startsWith('/api/delhivery/')) {
             const action = pathname.split('/').pop();
             req.query.action = action;
-            const module = await server.ssrLoadModule('/api/ithink/[action].js');
+            const module = await server.ssrLoadModule('/api/ithink.js');
             return await module.default(req, res);
           }
         } catch (err) {

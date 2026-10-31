@@ -1,23 +1,19 @@
 {
   "rewrites": [
     {
+      "source": "/api/ithink/:action*",
+      "destination": "/api/ithink?action=:action*"
+    },
+    {
       "source": "/api/delhivery/:action*",
-      "destination": "/api/ithink/:action*"
+      "destination": "/api/ithink?action=:action*"
     },
     {
-      "source": "/api/orders/sync-guest",
-      "destination": "/api/orders?action=sync-guest"
+      "source": "/api/orders/:action*",
+      "destination": "/api/orders?action=:action*"
     },
     {
-      "source": "/api/orders/track-guest",
-      "destination": "/api/orders?action=track-guest"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
