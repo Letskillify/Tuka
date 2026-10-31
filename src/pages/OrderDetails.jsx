@@ -371,11 +371,11 @@ const OrderDetails = () => {
                       </button>
 
                       <button
-                        onClick={() => setShowShiprocketModal(true)}
+                        onClick={() => handleOpenTracking(activeOrder)}
                         className="flex-1 md:flex-none px-5 py-3 rounded-2xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                       >
                         <Truck size={16} />
-                        <span>Track via Shiprocket</span>
+                        <span>Track Shipment</span>
                       </button>
                     </div>
                   </div>

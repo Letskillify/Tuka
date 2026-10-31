@@ -43,6 +43,11 @@ const QuickView = ({ product, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(() => onClose?.(), 300);
+  };
+
   if (!isOpen || !product) {
     return null;
   }
@@ -70,10 +75,7 @@ const QuickView = ({ product, onClose }) => {
             </h2>
             <button
               type="button"
-              onClick={() => {
-                setIsOpen(false);
-                setTimeout(() => onClose?.(), 300);
-              }}
+              onClick={handleClose}
               className="p-2 rounded-full hover:bg-[#FDFBF7] transition-colors text-[#4A4A4A]"
             >
               <X size={24} />

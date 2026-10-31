@@ -14,7 +14,7 @@ import CloudinaryImageLibrary from "./CloudinaryImageLibrary";
 import { useCatalogData } from "./useCatalogData";
 
 export const ProductForm = ({ onSuccess }) => {
-  const { categories, subCategories, brands, attributes: catalogAttributes, addCategory, addSubCategory, addAttribute, addBrand } = useCatalogData();
+  const { categories, subCategories, brands, attributes: catalogAttributes, addCategory, addSubCategory, addAttribute, addBrand, getSubcategoriesForCategory } = useCatalogData();
   const [showAddCatInput, setShowAddCatInput] = useState(false);
   const [newCatVal, setNewCatVal] = useState("");
   const [showAddSubCatInput, setShowAddSubCatInput] = useState(false);

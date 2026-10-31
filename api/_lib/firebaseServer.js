@@ -45,22 +45,27 @@ let adminDb = null;
 let adminAuth = null;
 
 try {
-    const adminModule = await import("firebase-admin");
-    const admin = adminModule.default || adminModule;
-    if (!admin.apps?.length) {
+    const { initializeApp: initAdminApp, getApps: getAdminApps, cert } = await import("firebase-admin/app");
+    const { getFirestore: getAdminFirestore } = await import("firebase-admin/firestore");
+    const { getAuth: getAdminAuth } = await import("firebase-admin/auth");
+
+    let app;
+    if (!getAdminApps().length) {
         if (process.env.FIREBASE_SERVICE_ACCOUNT) {
             try {
                 const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-                admin.initializeApp({ credential: admin.credential.cert(sa), projectId: process.env.VITE_FIREBASE_PROJECT_ID });
+                app = initAdminApp({ credential: cert(sa), projectId: process.env.VITE_FIREBASE_PROJECT_ID });
             } catch (e) {
-                admin.initializeApp({ projectId: process.env.VITE_FIREBASE_PROJECT_ID });
+                app = initAdminApp({ projectId: process.env.VITE_FIREBASE_PROJECT_ID });
             }
         } else {
-            admin.initializeApp({ projectId: process.env.VITE_FIREBASE_PROJECT_ID });
+            app = initAdminApp({ projectId: process.env.VITE_FIREBASE_PROJECT_ID });
         }
+    } else {
+        app = getAdminApps()[0];
     }
-    adminDb = admin.firestore();
-    adminAuth = admin.auth();
+    adminDb = getAdminFirestore(app);
+    adminAuth = getAdminAuth(app);
 } catch (err) {
     console.warn("[FirebaseServer] firebase-admin not initialized, using client SDK fallback", err?.message);
 }

@@ -50,7 +50,6 @@ const Wishlist = () => {
     if (!user) return;
     try {
       await deleteDoc(doc(db, "users", user.uid, "wishlist", id));
-      setItems((prev) => prev.filter((i) => i.id !== id));
     } catch (error) {
       console.error("Error removing item:", error);
     }
