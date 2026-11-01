@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { db } from "../../../components/Firebase";
 import {
@@ -201,6 +201,8 @@ export const ProductForm = ({ onSuccess }) => {
             <select
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm appearance-none bg-white"
               {...register("category", { required: true })}
+              value={watch("category") || ""}
+              onChange={(e) => setValue("category", e.target.value, { shouldValidate: true, shouldDirty: true })}
             >
               <option value="">Select Category</option>
               {categories.map(cat => (
@@ -234,7 +236,7 @@ export const ProductForm = ({ onSuccess }) => {
                 onClick={async () => {
                   if (newSubCatVal.trim()) {
                     await addSubCategory(newSubCatVal, watch("category"));
-                    setValue("subCategory", newSubCatVal.trim());
+                    setValue("subCategory", newSubCatVal.trim(), { shouldDirty: true });
                     setNewSubCatVal("");
                     setShowAddSubCatInput(false);
                   }
@@ -248,6 +250,8 @@ export const ProductForm = ({ onSuccess }) => {
             <select
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm appearance-none bg-white"
               {...register("subCategory")}
+              value={watch("subCategory") || ""}
+              onChange={(e) => setValue("subCategory", e.target.value, { shouldDirty: true })}
             >
               <option value="">Select Sub-category (e.g. Saree Weave)</option>
               {getSubcategoriesForCategory(selectedCategory).map((s) => (
@@ -560,7 +564,7 @@ export const ProductForm = ({ onSuccess }) => {
 
 export const EditProductForm = ({ product, onSuccess }) => {
   const { categories, getSubcategoriesForCategory, brands, addBrand } = useCatalogData();
-  const { register, handleSubmit, reset, watch, formState } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, formState } = useForm({
     defaultValues: {
       product_no: product?.product_no || "",
       name: product?.name || "",
@@ -573,7 +577,7 @@ export const EditProductForm = ({ product, onSuccess }) => {
       material: product?.material || "",
       care_instructions: product?.care_instructions || "",
       stock: product?.stock || 0,
-      tags: product?.tags ? product.tags.join(", ") : "",
+      tags: product?.tags ? (Array.isArray(product.tags) ? product.tags.join(", ") : product.tags) : "",
     },
   });
   const [loading, setLoading] = useState(false);
@@ -583,6 +587,31 @@ export const EditProductForm = ({ product, onSuccess }) => {
   const [variants, setVariants] = useState(product?.sizeVariants || []);
   
   const selectedCategory = watch("category", product?.category || "");
+
+  const categoryOptions = useMemo(() => {
+    const list = [...new Set(categories.filter(Boolean))];
+    if (product?.category && !list.includes(product.category)) {
+      list.unshift(product.category);
+    }
+    return list;
+  }, [categories, product?.category]);
+
+  const brandOptions = useMemo(() => {
+    const list = [...new Set(["Tuka", ...brands.filter(Boolean)])];
+    if (product?.brand && !list.includes(product.brand)) {
+      list.unshift(product.brand);
+    }
+    return list;
+  }, [brands, product?.brand]);
+
+  const subCategoryOptions = useMemo(() => {
+    const subs = getSubcategoriesForCategory(selectedCategory || product?.category);
+    const list = [...new Set(subs.filter(Boolean))];
+    if (product?.subCategory && !list.includes(product.subCategory)) {
+      list.unshift(product.subCategory);
+    }
+    return list;
+  }, [selectedCategory, product?.category, product?.subCategory, getSubcategoriesForCategory]);
 
   const [newSize, setNewSize] = useState("");
   const [newOrigPrice, setNewOrigPrice] = useState("");
@@ -603,12 +632,33 @@ export const EditProductForm = ({ product, onSuccess }) => {
         material: product.material || "",
         care_instructions: product.care_instructions || "",
         stock: product.stock || 0,
-        tags: product.tags ? product.tags.join(", ") : "",
+        tags: product.tags ? (Array.isArray(product.tags) ? product.tags.join(", ") : product.tags) : "",
       });
+      if (product.category) {
+        setValue("category", product.category, { shouldValidate: true });
+      }
+      if (product.subCategory) {
+        setValue("subCategory", product.subCategory);
+      }
       setSelectedCloudinaryImages(product.images || []);
       setVariants(product.sizeVariants || []);
     }
-  }, [product, reset]);
+  }, [product, reset, setValue]);
+
+  useEffect(() => {
+    if (product?.category) {
+      const currentVal = watch("category");
+      if (!currentVal || currentVal !== product.category) {
+        setValue("category", product.category, { shouldValidate: true });
+      }
+    }
+    if (product?.subCategory) {
+      const currentSub = watch("subCategory");
+      if (!currentSub || currentSub !== product.subCategory) {
+        setValue("subCategory", product.subCategory);
+      }
+    }
+  }, [categories, product, setValue, watch]);
 
   const addVariant = () => {
     if (!newSize.trim() || !newSelPrice) {
@@ -714,9 +764,11 @@ export const EditProductForm = ({ product, onSuccess }) => {
           <select
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm appearance-none bg-white"
             {...register("category", { required: true })}
+            value={watch("category") || ""}
+            onChange={(e) => setValue("category", e.target.value, { shouldValidate: true, shouldDirty: true })}
           >
             <option value="">Select Category</option>
-            {categories.map(cat => (
+            {categoryOptions.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
@@ -726,9 +778,11 @@ export const EditProductForm = ({ product, onSuccess }) => {
           <select
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm appearance-none bg-white"
             {...register("subCategory")}
+            value={watch("subCategory") || ""}
+            onChange={(e) => setValue("subCategory", e.target.value, { shouldDirty: true })}
           >
             <option value="">Select Sub-category (e.g. Saree Weave)</option>
-            {getSubcategoriesForCategory(selectedCategory).map(s => (
+            {subCategoryOptions.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
@@ -741,8 +795,10 @@ export const EditProductForm = ({ product, onSuccess }) => {
           <select
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#b13896] focus:ring-1 focus:ring-[#b13896] outline-none transition-all text-sm bg-white"
             {...register("brand")}
+            value={watch("brand") || "Tuka"}
+            onChange={(e) => setValue("brand", e.target.value, { shouldDirty: true })}
           >
-            {brands.map(br => (
+            {brandOptions.map(br => (
               <option key={br} value={br}>{br}</option>
             ))}
           </select>

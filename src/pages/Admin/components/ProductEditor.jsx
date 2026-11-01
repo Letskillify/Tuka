@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { ChevronRight, Plus, Trash, FolderPlus } from "lucide-react";
 import { createProduct, updateProduct } from "../../../services/productService";
@@ -38,7 +38,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
     }
   });
 
-  const selectedCategory = watch("category", "");
+  const selectedCategory = watch("category", product?.category || "");
 
   const [saving, setSaving] = useState(false);
   const [media, setMedia] = useState([]);
@@ -50,6 +50,32 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
   const [newOrigPrice, setNewOrigPrice] = useState("");
   const [newSelPrice, setNewSelPrice] = useState("");
   const [newStock, setNewStock] = useState("");
+
+  // Ensure options always include the product's current category, brand, and subcategory even if not in catalog
+  const categoryOptions = useMemo(() => {
+    const list = [...new Set(categories.filter(Boolean))];
+    if (product?.category && !list.includes(product.category)) {
+      list.unshift(product.category);
+    }
+    return list;
+  }, [categories, product?.category]);
+
+  const brandOptions = useMemo(() => {
+    const list = [...new Set(["Tuka", ...brands.filter(Boolean)])];
+    if (product?.brand && !list.includes(product.brand)) {
+      list.unshift(product.brand);
+    }
+    return list;
+  }, [brands, product?.brand]);
+
+  const subCategoryOptions = useMemo(() => {
+    const subs = getSubcategoriesForCategory(selectedCategory || product?.category);
+    const list = [...new Set(subs.filter(Boolean))];
+    if (product?.subCategory && !list.includes(product.subCategory)) {
+      list.unshift(product.subCategory);
+    }
+    return list;
+  }, [selectedCategory, product?.category, product?.subCategory, getSubcategoriesForCategory]);
 
   // Load product if editing
   useEffect(() => {
@@ -66,11 +92,17 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
         stock: product.stock || 0,
         description: product.description || "",
         care_instructions: product.care_instructions || "",
-        tags: product.tags ? product.tags.join(", ") : "",
+        tags: product.tags ? (Array.isArray(product.tags) ? product.tags.join(", ") : product.tags) : "",
         status: product.status || "Published",
         visibility: product.visibility || "Public",
         featuredProduct: !!product.featuredProduct
       });
+      if (product.category) {
+        setValue("category", product.category, { shouldValidate: true });
+      }
+      if (product.subCategory) {
+        setValue("subCategory", product.subCategory);
+      }
       setMedia((product.images || []).map((url, i) => ({
         id: `saved-${i}-${url}`,
         url,
@@ -100,7 +132,23 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
       setVariants([]);
       setSelectedAttributes([]);
     }
-  }, [product, reset]);
+  }, [product, reset, setValue]);
+
+  // Keep category in sync when catalog loads or updates
+  useEffect(() => {
+    if (product?.category) {
+      const currentVal = watch("category");
+      if (!currentVal || currentVal !== product.category) {
+        setValue("category", product.category, { shouldValidate: true });
+      }
+    }
+    if (product?.subCategory) {
+      const currentSub = watch("subCategory");
+      if (!currentSub || currentSub !== product.subCategory) {
+        setValue("subCategory", product.subCategory);
+      }
+    }
+  }, [categories, subCategories, product, setValue, watch]);
 
   const toggleAttribute = (attrName) => {
     setSelectedAttributes((prev) =>
@@ -325,8 +373,10 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
                   <select
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[14px] bg-white outline-none focus:border-[#b13896] transition-colors"
                     {...register("brand")}
+                    value={watch("brand") || "Tuka"}
+                    onChange={(e) => setValue("brand", e.target.value, { shouldDirty: true })}
                   >
-                    {brands.map(b => (
+                    {brandOptions.map(b => (
                       <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
@@ -361,7 +411,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
                       onClick={async () => {
                         if (newCatVal.trim()) {
                           await addCategory(newCatVal);
-                          setValue("category", newCatVal.trim());
+                          setValue("category", newCatVal.trim(), { shouldValidate: true, shouldDirty: true });
                           setNewCatVal("");
                           setShowAddCatInput(false);
                         }
@@ -375,9 +425,11 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
                   <select
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[14px] bg-white outline-none focus:border-[#b13896] transition-colors"
                     {...register("category", { required: true })}
+                    value={watch("category") || ""}
+                    onChange={(e) => setValue("category", e.target.value, { shouldValidate: true, shouldDirty: true })}
                   >
                     <option value="">Select Category</option>
-                    {categories.map(c => (
+                    {categoryOptions.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -411,7 +463,7 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
                       onClick={async () => {
                         if (newSubCatVal.trim()) {
                           await addSubCategory(newSubCatVal, watch("category"));
-                          setValue("subCategory", newSubCatVal.trim());
+                          setValue("subCategory", newSubCatVal.trim(), { shouldDirty: true });
                           setNewSubCatVal("");
                           setShowAddSubCatInput(false);
                         }
@@ -425,9 +477,11 @@ const ProductEditor = ({ product, onCancel, onSuccess }) => {
                   <select
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[14px] outline-none focus:border-[#b13896] transition-colors bg-white"
                     {...register("subCategory")}
+                    value={watch("subCategory") || ""}
+                    onChange={(e) => setValue("subCategory", e.target.value, { shouldDirty: true })}
                   >
                     <option value="">Select Sub-category (e.g. Saree Weave)</option>
-                    {getSubcategoriesForCategory(selectedCategory).map(s => (
+                    {subCategoryOptions.map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>

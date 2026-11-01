@@ -11,42 +11,88 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../components/Firebase";
 
-export const DEFAULT_CATEGORIES = [];
+export const DEFAULT_CATEGORIES = [
+  "Saree",
+  "Handloom Saree",
+  "Boutique Collection",
+  "Kurtis",
+  "Blouse",
+  "Designer Blouse",
+  "Dress material",
+  "Stoles",
+  "New Arrivals",
+  "DHANIAKHALI"
+];
 export const DEFAULT_SUBCATEGORIES_DATA = [];
-export const DEFAULT_SUBCATEGORIES = [];
-export const DEFAULT_BRANDS = [];
-export const DEFAULT_ATTRIBUTES = [];
+export const DEFAULT_SUBCATEGORIES = [
+  "Dhaniakhali Saree",
+  "Begumpuri Saree",
+  "Shantipuri Saree",
+  "Jamdani Saree",
+  "Cotton Saree",
+  "Silk Saree"
+];
+export const DEFAULT_BRANDS = ["Tuka"];
+export const DEFAULT_ATTRIBUTES = ["Handmade", "Pure Cotton", "Silk Mark", "Handloom"];
 
 export const useCatalogData = () => {
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [categoryObjects, setCategoryObjects] = useState([]);
-  const [subCategories, setSubCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState(DEFAULT_SUBCATEGORIES);
   const [subCategoryObjects, setSubCategoryObjects] = useState([]);
-  const [brands, setBrands] = useState([]);
-  const [attributes, setAttributes] = useState([]);
+  const [brands, setBrands] = useState(DEFAULT_BRANDS);
+  const [attributes, setAttributes] = useState(DEFAULT_ATTRIBUTES);
   const [attributeObjects, setAttributeObjects] = useState([]);
+  const [isCatalogLoaded, setIsCatalogLoaded] = useState(false);
 
   useEffect(() => {
+    let catLoaded = false;
+    let subLoaded = false;
+    let brandLoaded = false;
+    let attrLoaded = false;
+
+    const checkLoaded = () => {
+      if (catLoaded && subLoaded && brandLoaded && attrLoaded) {
+        setIsCatalogLoaded(true);
+      }
+    };
+
     const unsubCat = onSnapshot(collection(db, "categories"), (snap) => {
       const dbCats = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-      setCategories(dbCats.map((c) => c.name).filter(Boolean));
+      const dbCatNames = dbCats.map((c) => c.name?.trim()).filter(Boolean);
+      const uniqueCats = Array.from(new Set([...DEFAULT_CATEGORIES, ...dbCatNames]));
+      setCategories(uniqueCats);
       setCategoryObjects(dbCats);
+      catLoaded = true;
+      checkLoaded();
     });
 
     const unsubSub = onSnapshot(collection(db, "subcategories"), (snap) => {
       const dbSubs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-      setSubCategories(dbSubs.map((s) => s.name).filter(Boolean));
+      const dbSubNames = dbSubs.map((s) => s.name?.trim()).filter(Boolean);
+      const uniqueSubs = Array.from(new Set([...DEFAULT_SUBCATEGORIES, ...dbSubNames]));
+      setSubCategories(uniqueSubs);
       setSubCategoryObjects(dbSubs);
+      subLoaded = true;
+      checkLoaded();
     });
 
     const unsubBrand = onSnapshot(collection(db, "brands"), (snap) => {
-      setBrands(snap.docs.map((doc) => doc.data().name).filter(Boolean));
+      const dbBrandNames = snap.docs.map((doc) => doc.data().name?.trim()).filter(Boolean);
+      const uniqueBrands = Array.from(new Set([...DEFAULT_BRANDS, ...dbBrandNames]));
+      setBrands(uniqueBrands);
+      brandLoaded = true;
+      checkLoaded();
     });
 
     const unsubAttr = onSnapshot(collection(db, "attributes"), (snap) => {
       const dbAttrs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-      setAttributes(dbAttrs.map((a) => a.name).filter(Boolean));
+      const dbAttrNames = dbAttrs.map((a) => a.name?.trim()).filter(Boolean);
+      const uniqueAttrs = Array.from(new Set([...DEFAULT_ATTRIBUTES, ...dbAttrNames]));
+      setAttributes(uniqueAttrs);
       setAttributeObjects(dbAttrs);
+      attrLoaded = true;
+      checkLoaded();
     });
 
     return () => {
@@ -179,6 +225,7 @@ export const useCatalogData = () => {
     addAttribute,
     addBrand,
     getSubcategoriesForCategory,
+    isCatalogLoaded,
   };
 };
 
