@@ -11,11 +11,11 @@ import {
   where,
   getDocs,
   runTransaction,
-  serverTimestamp,
-  increment
+  serverTimestamp
 } from "./_lib/firebaseServer.js";
 import { sendOrderEmails } from "./_lib/emailService.js";
 import { createOrderShipment } from "./_lib/ithinkLogistics.js";
+import { validateStockAvailability, deductOrderInventory } from "./_lib/inventoryService.js";
 
 const getDb = () => clientDb;
 
@@ -218,20 +218,26 @@ export default async function handler(req, res) {
         const pData = pSnap.data();
 
         let unitPrice = Number(pData.price || 0);
-        let availableStock = Number(pData.stock || 100);
+        let availableStock = pData.stock !== undefined && pData.stock !== null ? Number(pData.stock) : 0;
         let variantIndex = -1;
 
         if (selectedSize && Array.isArray(pData.sizeVariants) && pData.sizeVariants.length > 0) {
-          variantIndex = pData.sizeVariants.findIndex((v) => v.size === selectedSize);
+          variantIndex = pData.sizeVariants.findIndex(
+            (v) => String(v.size || "").trim().toUpperCase() === String(selectedSize).trim().toUpperCase()
+          );
           if (variantIndex > -1) {
             const variant = pData.sizeVariants[variantIndex];
             unitPrice = Number(variant.price || pData.price || 0);
-            availableStock = Number(variant.stock || 100);
+            availableStock = variant.stock !== undefined && variant.stock !== null ? Number(variant.stock) : 0;
           }
         }
 
         if (availableStock < qty) {
-          throw new Error(`RACE_CONDITION: Insufficient stock for ${pData.name}.`);
+          const sizeLabel = selectedSize ? ` (Size: ${selectedSize})` : "";
+          return res.status(409).json({
+            error: `Insufficient stock for "${pData.name}"${sizeLabel}. Only ${availableStock} units remaining.`,
+            code: "INSUFFICIENT_STOCK"
+          });
         }
 
         const itemSubtotal = unitPrice * qty;
@@ -417,67 +423,14 @@ export default async function handler(req, res) {
       paymentId: paymentId ? String(paymentId) : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      inventoryDeducted: false,
       emailStatus: { customer: "pending", admin: "pending" }
     };
 
-    // 5. Save Order Logic (with stock deduction inside transaction)
+    // 5. Save Order Logic (with REST fallback)
     try {
       await runTransaction(db, async (transaction) => {
-        // Re-read product docs inside transaction to get latest stock (prevents race conditions)
-        const productRefs = [...new Map(validatedItems.map(item => [item.productId, doc(db, "products", item.productId)])).entries()];
-        const productSnaps = {};
-        for (const [pid, pRef] of productRefs) {
-          const snap = await transaction.get(pRef);
-          productSnaps[pid] = snap;
-        }
-
-        // Verify stock is still sufficient (race condition guard inside transaction)
-        for (const item of validatedItems) {
-          const snap = productSnaps[item.productId];
-          if (!snap || !snap.exists()) {
-            throw new Error(`RACE_CONDITION: Product ${item.productId} not found during transaction.`);
-          }
-          const pData = snap.data();
-          if (item.variantIndex > -1 && Array.isArray(pData.sizeVariants)) {
-            const variant = pData.sizeVariants[item.variantIndex];
-            if (Number(variant?.stock ?? 0) < item.quantity) {
-              throw new Error(`RACE_CONDITION: Insufficient stock for ${pData.name} (size: ${item.size}).`);
-            }
-          } else {
-            if (Number(pData.stock ?? 0) < item.quantity) {
-              throw new Error(`RACE_CONDITION: Insufficient stock for ${pData.name}.`);
-            }
-          }
-        }
-
-        // Deduct stock for each ordered item
-        for (const item of validatedItems) {
-          const pRef = productRefs.find(([pid]) => pid === item.productId)?.[1];
-          if (!pRef) continue;
-
-          const pData = productSnaps[item.productId].data();
-
-          if (item.variantIndex > -1 && Array.isArray(pData.sizeVariants)) {
-            // Deduct from the specific size variant
-            const updatedVariants = pData.sizeVariants.map((v, i) =>
-              i === item.variantIndex
-                ? { ...v, stock: Math.max(0, Number(v.stock ?? 0) - item.quantity) }
-                : v
-            );
-            transaction.update(pRef, {
-              sizeVariants: updatedVariants,
-              updatedAt: serverTimestamp()
-            });
-          } else {
-            // Deduct from top-level product stock
-            transaction.update(pRef, {
-              stock: Math.max(0, Number(pData.stock ?? 0) - item.quantity),
-              updatedAt: serverTimestamp()
-            });
-          }
-        }
-
-        // Save the order document
+        // Step C: Set Order Document directly (Skip stock deduction to avoid offline transaction drops)
         transaction.set(newOrderRef, orderData);
 
         if (finalUserId) {
@@ -498,11 +451,7 @@ export default async function handler(req, res) {
           isGuest: isGuestUser
         }, { merge: true });
       });
-      console.log(`[Orders] Stock deducted successfully for order ${orderNumber}`);
     } catch (e) {
-      if (e.message?.startsWith("RACE_CONDITION")) {
-        throw e; // re-throw to return 409 to client
-      }
       if (e.message?.includes("offline") || e.code === "unavailable") {
         console.warn("[Orders] Transaction Offline. Bypassing SDK with pure REST API save!");
         let projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
@@ -531,6 +480,24 @@ export default async function handler(req, res) {
         }
       } else {
         throw e;
+      }
+    }
+
+    // 5b. Concurrency-Safe Stock Deduction (Bug 2 Fix)
+    try {
+      await deductOrderInventory(db, orderId, snapshotItems, finalUserId);
+      orderData.inventoryDeducted = true;
+    } catch (invErr) {
+      console.error("[Orders] Error deducting inventory for confirmed order:", invErr);
+      if (invErr.code === "INSUFFICIENT_STOCK") {
+        await updateDoc(doc(db, "orders", orderId), {
+          orderStatus: "cancelled",
+          cancellationReason: "Insufficient inventory at time of final confirmation"
+        });
+        return res.status(409).json({
+          error: invErr.message || "Product went out of stock during checkout confirmation.",
+          code: "INSUFFICIENT_STOCK"
+        });
       }
     }
 

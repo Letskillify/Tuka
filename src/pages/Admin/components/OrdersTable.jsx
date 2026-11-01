@@ -27,7 +27,8 @@ import {
   Sparkles,
   ArrowUpDown,
   Check,
-  Loader2
+  Loader2,
+  Copy
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../../components/Firebase";
@@ -384,7 +385,8 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         const phone = String(o.customerPhone || o.shippingAddress?.phone || "").toLowerCase();
         const city = String(o.shippingAddress?.city || "").toLowerCase();
         const tracking = String(o.trackingNumber || o.awbNumber || "").toLowerCase();
-        return num.includes(q) || name.includes(q) || email.includes(q) || phone.includes(q) || city.includes(q) || tracking.includes(q);
+        const paymentId = String(o.paymentId || o.cashfreePaymentId || o.cfPaymentId || o.paymentDetails?.paymentId || "").toLowerCase();
+        return num.includes(q) || name.includes(q) || email.includes(q) || phone.includes(q) || city.includes(q) || tracking.includes(q) || paymentId.includes(q);
       });
     }
 
@@ -743,11 +745,25 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                         <span className="inline-block mt-0.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                           {order.paymentMethod || "Online"}
                         </span>
-                        {order.paymentId && (
-                          <span className="inline-block mt-0.5 font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            Ref: {order.paymentId}
-                          </span>
-                        )}
+                        {(() => {
+                          const payId = order.paymentId || order.cashfreePaymentId || order.cfPaymentId || order.paymentDetails?.paymentId;
+                          if (!payId) return null;
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard?.writeText(payId);
+                                showToast(`Copied payment reference: ${payId}`);
+                              }}
+                              className="inline-flex items-center gap-1 mt-1 font-mono text-[10px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-colors cursor-pointer"
+                              title="Click to copy payment ID"
+                            >
+                              <span>Ref: {payId}</span>
+                              <Copy size={10} className="text-emerald-600 opacity-70" />
+                            </button>
+                          );
+                        })()}
                       </div>
                     </td>
 
@@ -1244,45 +1260,24 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Payment ID:</span>
-                        {selectedOrder.paymentId ? (
-                          <span className="font-mono text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {selectedOrder.paymentId}
-                          </span>
-                        ) : selectedOrder.cashfreeOrderId ? (
-                          <span className="font-mono text-[11px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                            CF: {selectedOrder.cashfreeOrderId}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">N/A</span>
-                        )}
-                      </div>
-                      <div className="pt-1.5 pb-1 flex items-center justify-between border-t border-slate-200/60">
-                        <span className="text-[11px] text-slate-500">Email: <strong>{selectedOrder.emailStatus?.customer === "sent" ? "Delivered" : (selectedOrder.emailStatus?.customer || "Pending")}</strong></span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              showToast("Sending confirmation email...");
-                              const res = await fetch("/api/cashfree/verify-order", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "resend-email", orderId: selectedOrder.id })
-                              });
-                              const data = await res.json();
-                              if (data.success && data.emailStatus?.customer === "sent") {
-                                showToast(`Confirmation email sent to ${selectedOrder.customerEmail}!`);
-                              } else {
-                                showToast(data.error || "Failed to send email. Check SMTP settings.");
-                              }
-                            } catch (e) {
-                              showToast("Error sending email: " + e.message);
-                            }
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#b13896] border border-purple-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all"
-                        >
-                          <Mail size={12} />
-                          <span>Resend Email</span>
-                        </button>
+                        {(() => {
+                          const payId = selectedOrder.paymentId || selectedOrder.cashfreePaymentId || selectedOrder.cfPaymentId || selectedOrder.paymentDetails?.paymentId;
+                          if (!payId) return <span className="font-mono text-[11px] text-slate-400">N/A</span>;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(payId);
+                                showToast(`Copied payment reference: ${payId}`);
+                              }}
+                              className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors cursor-pointer"
+                              title="Click to copy payment ID"
+                            >
+                              <span>{payId}</span>
+                              <Copy size={11} className="text-emerald-600 opacity-70" />
+                            </button>
+                          );
+                        })()}
                       </div>
                       <div className="flex justify-between">
                         <span>Subtotal:</span>

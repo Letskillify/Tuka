@@ -102,9 +102,15 @@ const generateCustomerEmailHtml = (order) => {
                     <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Order Number</div>
                     <div style="font-size: 16px; font-weight: 700; color: #b13896; font-family: monospace; margin-top: 2px;">#${order.orderNumber}</div>
                   </td>
-                  <td width="50%" text-align="right">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Payment Method</div>
-                    <div style="font-size: 14px; font-weight: 700; color: #161114; margin-top: 2px;">${order.paymentMethod === 'online' ? 'Online Payment (Paid)' : 'Cash on Delivery'}</div>
+                  <td width="50%" align="right" style="text-align: right;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Payment Details</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #161114; margin-top: 2px;">
+                      ${order.paymentMethod || (String(order.paymentStatus).toLowerCase() === 'paid' ? 'Online Payment (Cashfree)' : 'Cash on Delivery (COD)')}
+                    </div>
+                    <div style="font-size: 11px; font-weight: 700; color: ${String(order.paymentStatus).toLowerCase() === 'paid' ? '#15803d' : '#b13896'}; margin-top: 2px;">
+                      Status: ${String(order.paymentStatus || 'Confirmed').toUpperCase()}
+                      ${order.paymentId ? ` &bull; Ref: <span style="font-family: monospace;">${order.paymentId}</span>` : ''}
+                    </div>
                   </td>
                 </tr>
                 ${order.awbCode ? `
@@ -275,12 +281,12 @@ const generateAdminEmailHtml = (order) => {
 
 export const sendOrderEmails = async (orderData) => {
   loadEnvFallback();
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = Number(process.env.SMTP_PORT || 465);
-  const smtpUser = (process.env.SMTP_USER || "tukasupport@gmail.com").trim();
-  const smtpPass = (process.env.SMTP_PASS || "vfzoaatozycaowzh").trim();
-  const smtpFrom = process.env.SMTP_FROM || `"House of Tuka" <tukasupport@gmail.com>`;
-  const adminEmail = (process.env.ADMIN_EMAIL || "tukasupport@gmail.com").trim();
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpFrom = process.env.SMTP_FROM || `"House of Tuka" <orders@tuka.in>`;
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@tuka.in";
 
   const emailResult = {
     customer: "pending",

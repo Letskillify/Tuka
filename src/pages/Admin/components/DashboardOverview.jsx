@@ -33,7 +33,7 @@ const Stat = ({ label, value, note, icon: Icon, tint, isDark }) => (
   </article>
 );
 
-const DashboardOverview = ({ products, users, orders, onViewProducts, isDarkMode = false }) => {
+const DashboardOverview = ({ products, users, orders, onViewProducts, onViewOrders, isDarkMode = false }) => {
   const data = useMemo(() => {
     const now = new Date(); now.setHours(23, 59, 59, 999);
     const start = new Date(now); start.setDate(now.getDate() - 13); start.setHours(0, 0, 0, 0);
@@ -121,8 +121,20 @@ const DashboardOverview = ({ products, users, orders, onViewProducts, isDarkMode
     <div className="space-y-5">
       {/* ─── Stat Cards (no revenue) ─── */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Total Orders" value={data.currentOrders.toLocaleString("en-IN")} note="Live database count" icon={ShoppingBag} tint="bg-rose-50 text-[#a6173c]" isDark={isDarkMode} />
-        <Stat label="Total Products" value={products.length.toLocaleString("en-IN")} note={`${inStock} in stock`} icon={Box} tint="bg-amber-50 text-amber-600" isDark={isDarkMode} />
+        <div
+          onClick={onViewOrders}
+          className="cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-98"
+          title="Click to view and manage all orders"
+        >
+          <Stat label="Total Orders" value={orders.length.toLocaleString("en-IN")} note="Manage all orders →" icon={ShoppingBag} tint="bg-rose-50 text-[#a6173c]" isDark={isDarkMode} />
+        </div>
+        <div
+          onClick={onViewProducts}
+          className="cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-98"
+          title="Click to view catalogue products"
+        >
+          <Stat label="Total Products" value={products.length.toLocaleString("en-IN")} note={`${inStock} in stock →`} icon={Box} tint="bg-amber-50 text-amber-600" isDark={isDarkMode} />
+        </div>
         <Stat label="Total Customers" value={users.length.toLocaleString("en-IN")} note="Registered accounts" icon={UsersRound} tint="bg-violet-50 text-violet-600" isDark={isDarkMode} />
         <Stat label="Low Stock Items" value={lowStock} note={`${inStock} total in stock`} icon={PackageCheck} tint="bg-emerald-50 text-emerald-600" isDark={isDarkMode} />
       </section>
@@ -136,6 +148,15 @@ const DashboardOverview = ({ products, users, orders, onViewProducts, isDarkMode
               <h2 className={`text-[15px] font-bold ${textPrimary}`}>Orders Overview</h2>
               <p className={`mt-1 text-[14px] ${textMuted}`}>Order count over the last 14 days</p>
             </div>
+            {onViewOrders && (
+              <button
+                onClick={onViewOrders}
+                className="text-xs font-bold text-[#b13896] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View all orders ({orders.length})</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
           </div>
           <div className="mt-5 h-56">
             <Line

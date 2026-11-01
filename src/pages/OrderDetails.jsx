@@ -27,31 +27,21 @@ import {
   User,
   Filter,
   Check,
-  Loader2
+  Loader2,
+  Copy
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { motion, AnimatePresence } from "framer-motion";
 
-export const getOrderStatusInfo = (rawStatus) => {
+export const getOrderStatusBadge = (rawStatus) => {
   const norm = String(rawStatus || "confirmed").toLowerCase().trim();
-  switch (norm) {
-    case "confirmed":
-      return { label: "Order Confirmed", step: 1, color: "text-blue-700 bg-blue-50 border-blue-200", dot: "bg-blue-500", desc: "Payment received. Master artisans preparing your authentic handloom drape." };
-    case "processing":
-      return { label: "Artisan Processing", step: 2, color: "text-indigo-700 bg-indigo-50 border-indigo-200", dot: "bg-indigo-500", desc: "Handloom drape is being tailored and prepared for dispatch." };
-    case "packed":
-      return { label: "Quality Inspected & Packed", step: 3, color: "text-amber-700 bg-amber-50 border-amber-200", dot: "bg-amber-500", desc: "Your handloom saree is sealed in authentic luxury packaging." };
-    case "shipped":
-      return { label: "Dispatched / In Transit", step: 4, color: "text-sky-700 bg-sky-50 border-sky-200", dot: "bg-sky-500", desc: "Package has been handed over to courier partner." };
-    case "delivered":
-      return { label: "Delivered", step: 5, color: "text-emerald-700 bg-emerald-50 border-emerald-200", dot: "bg-emerald-500", desc: "Package delivered to destination atelier. Enjoy your drape!" };
-    case "cancelled":
-      return { label: "Cancelled", step: -1, color: "text-rose-700 bg-rose-50 border-rose-200", dot: "bg-rose-500", desc: "This order has been cancelled." };
-    case "returned":
-      return { label: "Returned", step: -1, color: "text-slate-700 bg-slate-100 border-slate-200", dot: "bg-slate-500", desc: "This order has been processed for return." };
-    default:
-      return { label: rawStatus || "Confirmed", step: 1, color: "text-blue-700 bg-blue-50 border-blue-200", dot: "bg-blue-500", desc: "Order is confirmed and being prepared." };
-  }
+  if (norm.includes("delivered")) return { value: "delivered", label: "Delivered", bg: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" };
+  if (norm.includes("shipped") || norm.includes("transit")) return { value: "shipped", label: "Shipped", bg: "bg-sky-50 text-sky-700 border-sky-200", dot: "bg-sky-500" };
+  if (norm.includes("packed")) return { value: "packed", label: "Packed", bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" };
+  if (norm.includes("processing")) return { value: "processing", label: "Processing", bg: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" };
+  if (norm.includes("cancel")) return { value: "cancelled", label: "Cancelled", bg: "bg-rose-50 text-rose-700 border-rose-200", dot: "bg-rose-500" };
+  if (norm.includes("return")) return { value: "returned", label: "Returned", bg: "bg-slate-100 text-slate-700 border-slate-200", dot: "bg-slate-500" };
+  return { value: "confirmed", label: "Confirmed", bg: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" };
 };
 
 const OrderDetails = () => {
@@ -219,123 +209,98 @@ const OrderDetails = () => {
     }
   };
 
-  // Real-time Order synchronization for logged in user, guest email, and active URL order
+  // Fetch and subscribe to all orders in real-time
   useEffect(() => {
     const unsubs = [];
-    const emailToUse = (user?.email || guestEmailSubmitted || "").trim().toLowerCase();
     setLoading(true);
     setErrorMsg("");
 
+    const emailToUse = (user?.email || guestEmailSubmitted || "").trim().toLowerCase();
     const orderMap = new Map();
 
     const updateOrdersList = () => {
       const list = Array.from(orderMap.values());
-      list.sort((a, b) => {
-        const toMillis = (v) => (v?.seconds ? v.seconds * 1000 : new Date(v || 0).getTime());
-        return toMillis(b.createdAt) - toMillis(a.createdAt);
-      });
+      list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setOrders(list);
+
+      setActiveOrder((prevActive) => {
+        if (selectedOrderNum) {
+          const s = selectedOrderNum.trim().toUpperCase();
+          const found = list.find(
+            (o) => o.orderNumber?.toUpperCase() === s || o.id === selectedOrderNum || o.cashfreeOrderId === selectedOrderNum
+          );
+          if (found) return found;
+        }
+        if (prevActive) {
+          const updated = list.find((o) => o.id === prevActive.id || (prevActive.orderNumber && o.orderNumber === prevActive.orderNumber));
+          if (updated) return updated;
+        }
+        return list[0] || null;
+      });
+
       setLoading(false);
       setGuestLoading(false);
-
-      if (list.length > 0) {
-        if (selectedOrderNum) {
-          const found = list.find(
-            (o) =>
-              o.orderNumber?.toUpperCase() === selectedOrderNum.trim().toUpperCase() ||
-              o.id === selectedOrderNum ||
-              o.cashfreeOrderId === selectedOrderNum.trim()
-          );
-          setActiveOrder(found || list[0]);
-        } else {
-          setActiveOrder((prev) => {
-            if (!prev) return list[0];
-            const updated = list.find((o) => o.id === prev.id || o.orderNumber === prev.orderNumber);
-            return updated || list[0];
-          });
-        }
-      } else {
-        setActiveOrder(null);
-        if (guestEmailSubmitted) {
-          setErrorMsg(`No orders found associated with email: ${guestEmailSubmitted}`);
-        }
-      }
     };
 
-    try {
-      // 1. Direct Lookup by URL Order Identifier
-      if (selectedOrderNum) {
-        const numClean = selectedOrderNum.trim();
-        const unsubDirect = onSnapshot(
-          doc(db, "orders", numClean),
-          (snap) => {
-            if (snap.exists()) {
-              orderMap.set(snap.id, { id: snap.id, ...snap.data() });
-              updateOrdersList();
-            }
-          },
-          () => {}
-        );
-        unsubs.push(unsubDirect);
+    // 1. Direct Lookup by ID / orderNumber / cashfreeOrderId if in URL
+    if (selectedOrderNum) {
+      const numClean = selectedOrderNum.trim();
+      const directRef = doc(db, "orders", numClean);
+      const unsubDoc = onSnapshot(directRef, (snap) => {
+        if (snap.exists()) {
+          orderMap.set(snap.id, { id: snap.id, ...snap.data() });
+          updateOrdersList();
+        }
+      }, (e) => console.warn("[OrderDetails] direct order listen error:", e.message));
+      unsubs.push(unsubDoc);
 
-        const unsubNum = onSnapshot(
-          query(collection(db, "orders"), where("orderNumber", "==", numClean.toUpperCase())),
-          (snap) => {
-            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-            updateOrdersList();
-          },
-          () => {}
-        );
-        unsubs.push(unsubNum);
+      const numQ = query(collection(db, "orders"), where("orderNumber", "==", numClean.toUpperCase()));
+      const unsubNum = onSnapshot(numQ, (snap) => {
+        snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+        updateOrdersList();
+      }, (e) => console.warn("[OrderDetails] num query error:", e.message));
+      unsubs.push(unsubNum);
 
-        const unsubCf = onSnapshot(
-          query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean)),
-          (snap) => {
-            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-            updateOrdersList();
-          },
-          () => {}
-        );
-        unsubs.push(unsubCf);
-      }
-
-      // 2. Query by Authenticated User
-      if (user?.uid) {
-        const unsubUid = onSnapshot(
-          query(collection(db, "orders"), where("userId", "==", user.uid)),
-          (snap) => {
-            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-            updateOrdersList();
-          },
-          (err) => console.warn("Orders UID snapshot warning:", err)
-        );
-        unsubs.push(unsubUid);
-      }
-
-      // 3. Query by Email
-      if (emailToUse) {
-        const unsubEmail = onSnapshot(
-          query(collection(db, "orders"), where("customerEmail", "==", emailToUse)),
-          (snap) => {
-            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-            updateOrdersList();
-          },
-          (err) => console.warn("Orders email snapshot warning:", err)
-        );
-        unsubs.push(unsubEmail);
-      }
-
-      if (!user?.uid && !emailToUse && !selectedOrderNum) {
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error("[OrderDetails] Listener Setup Error:", err);
-      setErrorMsg(err.message || "Failed to load orders.");
-      setLoading(false);
+      const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
+      const unsubCf = onSnapshot(cfQ, (snap) => {
+        snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+        updateOrdersList();
+      }, (e) => console.warn("[OrderDetails] cf query error:", e.message));
+      unsubs.push(unsubCf);
     }
 
+    // 2. Query by Authenticated User ID
+    if (user?.uid) {
+      const qUid = query(collection(db, "orders"), where("userId", "==", user.uid));
+      const unsubUid = onSnapshot(qUid, (snap) => {
+        snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+        updateOrdersList();
+      }, (err) => console.warn("[OrderDetails] user order listen error:", err.message));
+      unsubs.push(unsubUid);
+    }
+
+    // 3. Query by Email (for guest or patrons)
+    if (emailToUse) {
+      const qEmail = query(collection(db, "orders"), where("customerEmail", "==", emailToUse));
+      const unsubEmail = onSnapshot(qEmail, (snap) => {
+        snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+        updateOrdersList();
+      }, (err) => console.warn("[OrderDetails] email order listen error:", err.message));
+      unsubs.push(unsubEmail);
+    }
+
+    // Fallback safety timeout if user has no orders in database
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setGuestLoading(false);
+      if (orderMap.size === 0 && guestEmailSubmitted) {
+        setErrorMsg(`No orders found associated with email: ${guestEmailSubmitted}`);
+      }
+    }, 1500);
+
     return () => {
-      unsubs.forEach((u) => u && typeof u === "function" && u());
+      clearTimeout(timer);
+      unsubs.forEach((u) => u && u());
     };
   }, [user, guestEmailSubmitted, selectedOrderNum]);
 
@@ -377,7 +342,6 @@ const OrderDetails = () => {
   const addr = activeOrder?.shippingAddress || {};
   const items = activeOrder?.items || [];
   const status = (activeOrder?.orderStatus || activeOrder?.status || "confirmed").toLowerCase();
-  const statusInfo = getOrderStatusInfo(activeOrder?.orderStatus || activeOrder?.status);
   const paymentStatus = activeOrder?.paymentStatus || "Paid";
 
   return (
@@ -564,6 +528,9 @@ const OrderDetails = () => {
                   const isSelected = activeOrder?.id === ord.id || activeOrder?.orderNumber === ord.orderNumber;
                   const itemPreview = ord.items?.[0];
 
+                  const stBadge = getOrderStatusBadge(ord.orderStatus || ord.status);
+                  const payId = ord.paymentId || ord.cashfreePaymentId || ord.cfPaymentId || ord.paymentDetails?.paymentId;
+
                   return (
                     <div
                       key={ord.id}
@@ -584,22 +551,12 @@ const OrderDetails = () => {
                           </span>
                         </div>
                         <div className="text-right space-y-1">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border block ${
-                            (ord.orderStatus || ord.status || "").toLowerCase() === "delivered" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                            (ord.orderStatus || ord.status || "").toLowerCase() === "shipped" ? "bg-sky-50 text-sky-700 border-sky-200" :
-                            (ord.orderStatus || ord.status || "").toLowerCase() === "packed" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                            (ord.orderStatus || ord.status || "").toLowerCase() === "cancelled" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                            "bg-blue-50 text-blue-700 border-blue-200"
-                          }`}>
-                            {ord.orderStatus || ord.status || "Confirmed"}
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border block ${stBadge.bg}`}>
+                            {stBadge.label}
                           </span>
-                          {ord.paymentId ? (
+                          {payId && (
                             <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 block">
-                              Ref: {ord.paymentId}
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold uppercase text-slate-400 block">
-                              {ord.paymentStatus || "Paid"}
+                              Ref: {payId}
                             </span>
                           )}
                         </div>
@@ -630,145 +587,170 @@ const OrderDetails = () => {
             {/* ── RIGHT COLUMN: ACTIVE ORDER COMPLETE DETAILS (8 COLS) ── */}
             <div className="lg:col-span-8 space-y-6">
               {activeOrder ? (
-                <motion.div
-                  key={activeOrder.id}
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="space-y-6"
-                >
-                  {/* Order Ribbon Header */}
-                  <div className="bg-[#161114] text-white rounded-[32px] p-6 sm:p-8 border border-[#b13896]/30 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#f4cfeb] bg-[#b13896]/30 px-3 py-1 rounded-full border border-[#b13896]/40">
-                          VERIFIED ACQUISITION
-                        </span>
-                        <span className="text-xs text-white/50">
-                          {activeOrder.createdAt?.seconds ? new Date(activeOrder.createdAt.seconds * 1000).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent'}
-                        </span>
-                      </div>
+                (() => {
+                  const activeStBadge = getOrderStatusBadge(activeOrder.orderStatus || activeOrder.status);
+                  const activePayId = activeOrder.paymentId || activeOrder.cashfreePaymentId || activeOrder.cfPaymentId || activeOrder.paymentDetails?.paymentId;
+                  const normStatus = String(activeOrder.orderStatus || activeOrder.status || "confirmed").toLowerCase();
+                  const isCancelled = normStatus.includes("cancel");
 
-                      <h1 className="text-3xl font-serif text-white">
-                        Order #{activeOrder.orderNumber || activeOrder.id}
-                      </h1>
-                      <p className="text-xs text-white/60">
-                        Patron: <strong>{activeOrder.customerName}</strong> ({activeOrder.customerEmail})
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <span className="text-[11px] font-semibold text-white/80 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10">
-                          {activeOrder.paymentMethod || "Online Payment"}
-                        </span>
-                        {activeOrder.paymentId && (
-                          <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
-                            <CheckCircle2 size={12} className="text-emerald-400" />
-                            Ref ID: {activeOrder.paymentId}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  const steps = [
+                    { key: "confirmed", label: "Confirmed", desc: "Order recorded & verified" },
+                    { key: "processing", label: "Processing", desc: "Handloom crafted & packed" },
+                    { key: "shipped", label: "Shipped", desc: "Handed to courier" },
+                    { key: "delivered", label: "Delivered", desc: "Arrived at destination" }
+                  ];
 
-                    {/* Action Buttons: Invoice & Shiprocket */}
-                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                      <button
-                        onClick={() => setShowInvoiceModal(true)}
-                        className="flex-1 md:flex-none px-5 py-3 rounded-2xl bg-white/10 hover:bg-[#b13896] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all border border-white/20 cursor-pointer shadow-md"
-                      >
-                        <FileText size={16} />
-                        <span>Download Invoice</span>
-                      </button>
+                  const getStepState = (stepKey, idx) => {
+                    if (isCancelled) return { isComplete: false, isCurrent: false };
+                    const orderLevelMap = {
+                      confirmed: 0,
+                      processing: 1,
+                      packed: 1,
+                      shipped: 2,
+                      delivered: 3
+                    };
+                    const currentLevel = orderLevelMap[normStatus] ?? 0;
+                    return {
+                      isComplete: currentLevel > idx,
+                      isCurrent: currentLevel === idx
+                    };
+                  };
 
-                      <button
-                        onClick={() => handleOpenTracking(activeOrder)}
-                        className="flex-1 md:flex-none px-5 py-3 rounded-2xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                      >
-                        <Truck size={16} />
-                        <span>Track Shipment</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* ── Fulfillment Timeline Progression Card ── */}
-                  <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-[#e5d5df]/60 shadow-sm space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b13896] block">
-                          Live Order Progression
-                        </span>
-                        <h3 className="font-serif text-2xl text-[#161114]">
-                          {statusInfo.label}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {statusInfo.desc}
-                        </p>
-                      </div>
-                      <span className={`self-start sm:self-auto text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border ${statusInfo.color}`}>
-                        {statusInfo.label}
-                      </span>
-                    </div>
-
-                    {/* 5-Step Stepper */}
-                    {statusInfo.step !== -1 && (
-                      <div className="grid grid-cols-5 gap-2 pt-2">
-                        {[
-                          { label: "Confirmed", icon: CheckCircle2, stepNum: 1 },
-                          { label: "Processing", icon: Clock, stepNum: 2 },
-                          { label: "Packed", icon: Package, stepNum: 3 },
-                          { label: "Shipped", icon: Truck, stepNum: 4 },
-                          { label: "Delivered", icon: Check, stepNum: 5 }
-                        ].map((st) => {
-                          const isPassed = statusInfo.step >= st.stepNum;
-                          const isCurrent = statusInfo.step === st.stepNum;
-                          const StepIcon = st.icon;
-
-                          return (
-                            <div key={st.label} className="text-center space-y-2">
-                              <div
-                                className={`w-10 h-10 rounded-2xl mx-auto flex items-center justify-center transition-all ${
-                                  isPassed
-                                    ? "bg-[#b13896] text-white shadow-md shadow-[#b13896]/20"
-                                    : "bg-slate-100 text-slate-400"
-                                } ${isCurrent ? "ring-4 ring-[#b13896]/20 scale-105" : ""}`}
-                              >
-                                <StepIcon size={18} strokeWidth={isPassed ? 2.5 : 1.8} />
-                              </div>
-                              <div>
-                                <p className={`text-xs font-bold leading-tight ${isPassed ? "text-slate-900" : "text-slate-400"}`}>
-                                  {st.label}
-                                </p>
-                                <span className="text-[10px] text-slate-400 hidden sm:block">Step {st.stepNum}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Tracking Information Banner if Courier Assigned */}
-                    {(activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.courierName) && (
-                      <div className="p-4 bg-sky-50/70 border border-sky-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0">
-                            <Truck size={18} />
+                  return (
+                    <motion.div
+                      key={activeOrder.id}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="space-y-6"
+                    >
+                      {/* Order Ribbon Header */}
+                      <div className="bg-[#161114] text-white rounded-[32px] p-6 sm:p-8 border border-[#b13896]/30 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className={`text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full border ${activeStBadge.bg}`}>
+                              STATUS: {activeStBadge.label}
+                            </span>
+                            <span className="text-xs text-white/50">
+                              {activeOrder.createdAt?.seconds ? new Date(activeOrder.createdAt.seconds * 1000).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent'}
+                            </span>
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-900">
-                              Dispatched via {activeOrder.courierName || "iThink Logistics Partner"}
-                            </p>
-                            <p className="font-mono text-sky-800 text-[11px] mt-0.5">
-                              AWB Tracking Code: <strong>{activeOrder.awbCode || activeOrder.trackingNumber}</strong>
-                            </p>
+
+                          <h1 className="text-3xl font-serif text-white">
+                            Order #{activeOrder.orderNumber || activeOrder.id}
+                          </h1>
+                          <p className="text-xs text-white/60">
+                            Patron: <strong>{activeOrder.customerName}</strong> ({activeOrder.customerEmail})
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <span className="text-[11px] font-semibold text-white/80 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10">
+                              {activeOrder.paymentMethod || "Online Payment"}
+                            </span>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                              Payment: {activeOrder.paymentStatus || "Paid"}
+                            </span>
+                            {activePayId && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(activePayId);
+                                  alert(`Copied payment reference ID: ${activePayId}`);
+                                }}
+                                className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-950/70 hover:bg-emerald-900 px-2.5 py-0.5 rounded-full border border-emerald-500/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Click to copy Payment ID"
+                              >
+                                <CheckCircle2 size={12} className="text-emerald-400" />
+                                <span>Ref: {activePayId}</span>
+                                <Copy size={10} className="text-emerald-300/70" />
+                              </button>
+                            )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleOpenTracking(activeOrder)}
-                          className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                        >
-                          <span>Track Live</span>
-                          <ExternalLink size={12} />
-                        </button>
+
+                        {/* Action Buttons: Invoice & Shiprocket */}
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                          <button
+                            onClick={() => setShowInvoiceModal(true)}
+                            className="flex-1 md:flex-none px-5 py-3 rounded-2xl bg-white/10 hover:bg-[#b13896] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all border border-white/20 cursor-pointer shadow-md"
+                          >
+                            <FileText size={16} />
+                            <span>Download Invoice</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleOpenTracking(activeOrder)}
+                            className="flex-1 md:flex-none px-5 py-3 rounded-2xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                          >
+                            <Truck size={16} />
+                            <span>Track Shipment</span>
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* ── LIVE ORDER PROGRESSION STEPPER ── */}
+                      <div className="bg-white rounded-[32px] p-6 sm:p-7 border border-[#e5d5df]/60 shadow-sm space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block">
+                              Order Status Progression
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="font-serif text-lg text-slate-900 font-bold">Fulfillment Stage:</span>
+                              <span className={`px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${activeStBadge.bg}`}>
+                                {activeStBadge.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {activeOrder.trackingNumber && (
+                            <div className="flex items-center gap-2 text-xs text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-200">
+                              <Truck size={14} className="text-sky-600 shrink-0" />
+                              <span>
+                                <strong>AWB:</strong> {activeOrder.trackingNumber} ({activeOrder.courierName || "iThink Express"})
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Progression Stepper */}
+                        {isCancelled ? (
+                          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-700 text-xs font-semibold">
+                            <AlertCircle size={18} className="text-rose-600 shrink-0" />
+                            <span>This order has been marked as Cancelled. For assistance, reach out to our patron support.</span>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                            {steps.map((st, i) => {
+                              const state = getStepState(st.key, i);
+                              return (
+                                <div key={st.key} className="space-y-1.5 text-center sm:text-left">
+                                  <div className="flex items-center">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-xs transition-all ${
+                                      state.isComplete
+                                        ? "bg-emerald-600 text-white"
+                                        : state.isCurrent
+                                        ? "bg-[#b13896] text-white ring-4 ring-[#b13896]/20"
+                                        : "bg-slate-100 text-slate-400"
+                                    }`}>
+                                      {state.isComplete ? <Check size={13} strokeWidth={3} /> : i + 1}
+                                    </div>
+                                    {i < 3 && (
+                                      <div className={`hidden sm:block flex-1 h-1 mx-2 rounded-full transition-colors ${
+                                        state.isComplete ? "bg-emerald-500" : "bg-slate-100"
+                                      }`} />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className={`text-xs font-bold ${state.isComplete || state.isCurrent ? "text-slate-900" : "text-slate-400"}`}>
+                                      {st.label}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 leading-tight">{st.desc}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
 
                   {/* Items Card */}
                   <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-[#e5d5df]/60 shadow-sm space-y-6">
@@ -890,7 +872,9 @@ const OrderDetails = () => {
                     </div>
                   </div>
 
-                </motion.div>
+                    </motion.div>
+                  );
+                })()
               ) : (
                 <div className="text-center py-20 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm space-y-4">
                   <ShoppingBag size={48} className="mx-auto text-slate-300" />

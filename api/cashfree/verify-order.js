@@ -15,11 +15,11 @@ import {
     query,
     where,
     getDocs,
-    runTransaction,
     serverTimestamp
 } from "../_lib/firebaseServer.js";
 
 import { sendOrderEmails } from "../_lib/emailService.js";
+import { deductOrderInventory } from "../_lib/inventoryService.js";
 import { createOrderShipment } from "../_lib/ithinkLogistics.js";
 
 const generateOrderNumber = () => {
@@ -37,7 +37,14 @@ export default async function handler(req, res) {
     }
 
     try {
-        const cashfreeOrderId = req.query?.orderId || req.query?.cf_order_id || req.query?.order_id || req.body?.cashfreeOrderId || req.body?.orderId || req.body?.cf_order_id;
+        const cashfreeOrderId =
+            req.query?.orderId ||
+            req.query?.cf_order_id ||
+            req.query?.order_id ||
+            req.body?.cashfreeOrderId ||
+            req.body?.orderId ||
+            req.body?.cf_order_id;
+
         const claimPaymentId = req.query?.paymentId || req.body?.paymentId || req.body?.claimPaymentId;
         const claimAmount = Number(req.body?.claimAmount || 1);
         const claimCustomerEmail = req.body?.claimEmail || req.query?.email || "customer@tuka.co.in";
@@ -48,35 +55,9 @@ export default async function handler(req, res) {
         const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
         const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
 
-        // Special Action: Resend Confirmation Email
-        if (req.body?.action === "resend-email") {
-            const targetId = req.body?.orderId || req.body?.orderNumber;
-            let foundSnap = null;
-            if (targetId) {
-                const direct = await getDoc(doc(db, "orders", targetId));
-                if (direct.exists()) foundSnap = direct;
-                else {
-                    const byNum = await getDocs(query(collection(db, "orders"), where("orderNumber", "==", targetId)));
-                    if (!byNum.empty) foundSnap = byNum.docs[0];
-                }
-            }
-            if (!foundSnap) {
-                return res.status(404).json({ error: "Order not found." });
-            }
-            const oData = { id: foundSnap.id, ...foundSnap.data() };
-            const emailRes = await sendOrderEmails({
-                ...oData,
-                orderId: foundSnap.id,
-                orderNumber: oData.orderNumber
-            });
-            await updateDoc(doc(db, "orders", foundSnap.id), { emailStatus: emailRes });
-            return res.status(200).json({ success: true, emailStatus: emailRes });
-        }
-
-        // Special Admin / Customer Claim Action by Payment ID (e.g. for past unlinked payments like 688991276)
+        // Special Admin / Customer Claim Action by Payment ID (e.g. for past unlinked payments)
         if (req.body?.action === "claim-payment" || (claimPaymentId && !cashfreeOrderId)) {
             const cleanPaymentId = String(claimPaymentId).trim();
-            // Check if already claimed in Firestore
             const existingQ = query(collection(db, "orders"), where("paymentId", "==", cleanPaymentId));
             const existingSnap = await getDocs(existingQ);
             if (!existingSnap.empty) {
@@ -90,7 +71,6 @@ export default async function handler(req, res) {
                 });
             }
 
-            // Create claimed order
             const newOrderRef = doc(collection(db, "orders"));
             const orderId = newOrderRef.id;
             const orderNumber = generateOrderNumber();
@@ -132,7 +112,9 @@ export default async function handler(req, res) {
                 ],
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-                claimedManually: true
+                claimedManually: true,
+                inventoryDeducted: true,
+                emailStatus: { customer: "pending", admin: "pending" }
             };
 
             await setDoc(newOrderRef, claimedOrder);
@@ -154,6 +136,7 @@ export default async function handler(req, res) {
         let successfulPayment = null;
         let cfPaymentId = null;
 
+        // Authoritative server-side verification with Cashfree API
         if (appId && secretKey && !appId.startsWith("YOUR_")) {
             const cfEnvironment = isProd ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
             const cfConfig = new CFConfig(cfEnvironment, "2023-08-01", appId, secretKey);
@@ -165,17 +148,17 @@ export default async function handler(req, res) {
                     ? response.cfPaymentsEntity
                     : Array.isArray(response)
                     ? response
-                    : (response?.data ? response.data : []);
+                    : [];
 
                 successfulPayment = paymentList.find(
-                    p => String(p.paymentStatus || p.payment_status || "").toUpperCase() === "SUCCESS"
+                    (p) => String(p.paymentStatus || p.payment_status).toUpperCase() === "SUCCESS"
                 );
 
                 if (successfulPayment) {
-                    cfPaymentId = successfulPayment.cfPaymentId || successfulPayment.cf_payment_id || cashfreeOrderId;
+                    cfPaymentId = successfulPayment.cfPaymentId || successfulPayment.cf_payment_id;
                 }
             } catch (gatewayErr) {
-                console.error("[VerifyOrder] Cashfree Gateway error:", gatewayErr?.response?.data || gatewayErr.message);
+                console.error("[VerifyOrder] Cashfree Gateway verification error:", gatewayErr?.response?.data || gatewayErr.message);
             }
         } else {
             // Mock dev mode
@@ -184,12 +167,15 @@ export default async function handler(req, res) {
         }
 
         if (!successfulPayment) {
-            // Check if there are failed/pending payments
-            const hasFailed = paymentList.some(p => ["FAILED", "USER_DROPPED", "CANCELLED"].includes(String(p.paymentStatus || p.payment_status).toUpperCase()));
+            const hasFailed = paymentList.some((p) =>
+                ["FAILED", "USER_DROPPED", "CANCELLED"].includes(String(p.paymentStatus || p.payment_status).toUpperCase())
+            );
             return res.status(400).json({
                 success: false,
                 paymentStatus: hasFailed ? "FAILED" : "PENDING",
-                error: hasFailed ? "Payment was unsuccessful or cancelled by user." : "Payment status is pending verification."
+                error: hasFailed
+                    ? "Payment was unsuccessful or cancelled by user."
+                    : "Payment status is pending verification."
             });
         }
 
@@ -203,7 +189,7 @@ export default async function handler(req, res) {
         if (!snap.empty) {
             orderDocSnap = snap.docs[0];
         } else {
-            // Fallback: check by doc ID
+            // Direct document ID fallback
             const directSnap = await getDoc(doc(db, "orders", cashfreeOrderId));
             if (directSnap.exists()) {
                 orderDocSnap = directSnap;
@@ -211,147 +197,121 @@ export default async function handler(req, res) {
         }
 
         if (orderDocSnap) {
-            const orderData = { id: orderDocSnap.id, ...orderDocSnap.data() };
             const orderDocId = orderDocSnap.id;
+            const orderData = { id: orderDocId, ...orderDocSnap.data() };
 
-            if (orderData.paymentStatus !== "Paid") {
-                const updates = {
-                    paymentStatus: "Paid",
-                    orderStatus: "confirmed",
-                    paymentId: finalPaymentId,
-                    paymentMethod: "Online Payment (Cashfree)",
-                    paymentDetails: {
-                        cashfreeOrderId,
-                        cfPaymentId: finalPaymentId,
-                        paymentStatus: "SUCCESS",
-                        paymentTime: successfulPayment?.paymentCompletionTime || new Date().toISOString()
-                    },
-                    updatedAt: serverTimestamp()
+            const isAlreadyPaid = orderData.paymentStatus === "Paid";
+            const isInventoryDeducted = orderData.inventoryDeducted === true;
+            const isEmailSent = orderData.emailStatus?.customer === "sent";
+
+            // IDEMPOTENCY GUARD:
+            // If the order has already been verified, paid, inventory deducted, and email sent, return cleanly
+            if (isAlreadyPaid && isInventoryDeducted && isEmailSent) {
+                console.log(`[VerifyOrder] Order ${orderDocId} is already fully confirmed, stock deducted, and email sent.`);
+                return res.status(200).json({
+                    success: true,
+                    verified: true,
+                    alreadyProcessed: true,
+                    orderId: orderDocId,
+                    orderNumber: orderData.orderNumber,
+                    paymentId: orderData.paymentId || finalPaymentId,
+                    order: orderData
+                });
+            }
+
+            // 1. Update Order Status to PAID & Confirmed (if not already)
+            const updates = {};
+            if (!isAlreadyPaid) {
+                updates.paymentStatus = "Paid";
+                updates.orderStatus = "confirmed";
+                updates.paymentId = finalPaymentId;
+                updates.paymentMethod = "Online Payment (Cashfree)";
+                updates.paymentDetails = {
+                    cashfreeOrderId,
+                    cfPaymentId: finalPaymentId,
+                    paymentStatus: "SUCCESS",
+                    paymentTime: successfulPayment?.paymentCompletionTime || new Date().toISOString()
                 };
+                updates.updatedAt = serverTimestamp();
 
-                // Deduct stock atomically inside a transaction
-                try {
-                    const orderItems = orderData.items || [];
-                    if (orderItems.length > 0) {
-                        await runTransaction(clientDb, async (transaction) => {
-                            // Read all product docs inside transaction
-                            const productSnaps = {};
-                            for (const item of orderItems) {
-                                const pid = String(item.productId || "").split("_")[0];
-                                if (!pid) continue;
-                                if (!productSnaps[pid]) {
-                                    const pRef = doc(clientDb, "products", pid);
-                                    productSnaps[pid] = { ref: pRef, snap: await transaction.get(pRef) };
-                                }
-                            }
+                await updateDoc(doc(db, "orders", orderDocId), updates);
 
-                            // Deduct stock per item
-                            for (const item of orderItems) {
-                                const pid = String(item.productId || "").split("_")[0];
-                                if (!pid) continue;
-                                const { ref: pRef, snap: pSnap } = productSnaps[pid] || {};
-                                if (!pRef || !pSnap?.exists()) continue;
-
-                                const pData = pSnap.data();
-                                const qty = Number(item.quantity || 1);
-                                const selectedSize = item.size || item.selectedSize || null;
-
-                                if (selectedSize && Array.isArray(pData.sizeVariants) && pData.sizeVariants.length > 0) {
-                                    const variantIdx = pData.sizeVariants.findIndex(v => v.size === selectedSize);
-                                    if (variantIdx > -1) {
-                                        const updatedVariants = pData.sizeVariants.map((v, i) =>
-                                            i === variantIdx
-                                                ? { ...v, stock: Math.max(0, Number(v.stock ?? 0) - qty) }
-                                                : v
-                                        );
-                                        transaction.update(pRef, { sizeVariants: updatedVariants, updatedAt: serverTimestamp() });
-                                    }
-                                } else {
-                                    transaction.update(pRef, {
-                                        stock: Math.max(0, Number(pData.stock ?? 0) - qty),
-                                        updatedAt: serverTimestamp()
-                                    });
-                                }
-                            }
-
-                            // Confirm the order within the same transaction
-                            transaction.update(doc(clientDb, "orders", orderDocId), updates);
-                        });
-                        console.log(`[VerifyOrder] Stock deducted for order ${orderData.orderNumber}`);
-                    } else {
-                        // No items (orphan recovery), just update the order
-                        await updateDoc(doc(db, "orders", orderDocId), updates);
-                    }
-                } catch (stockErr) {
-                    console.error("[VerifyOrder] Stock deduction transaction error:", stockErr.message);
-                    // Fallback: still update order status even if stock deduction fails
-                    await updateDoc(doc(db, "orders", orderDocId), updates);
-                }
-
-                if (orderData.userId) {
+                if (orderData.userId && orderData.userId !== "guest") {
                     try {
                         await updateDoc(doc(db, "users", orderData.userId, "orders", orderDocId), updates);
                     } catch (e) {}
                 }
-
-                // Dispatch Courier Manifest & Emails
-                try {
-                    const fullOrderSnapshot = { ...orderData, ...updates };
-
-                    // 1. Send Order Confirmation Email
-                    try {
-                        const emailResult = await sendOrderEmails({
-                            ...fullOrderSnapshot,
-                            orderId: orderDocId,
-                            orderNumber: orderData.orderNumber,
-                            createdAt: new Date().toISOString()
-                        });
-                        await updateDoc(doc(db, "orders", orderDocId), { emailStatus: emailResult });
-                        updates.emailStatus = emailResult;
-                    } catch (emailErr) {
-                        console.error("[VerifyOrder] Email dispatch error:", emailErr.message);
-                    }
-
-                    // 2. Dispatch Courier Shipment with iThink Logistics
-                    createOrderShipment(fullOrderSnapshot).then(async (shipRes) => {
-                        if (shipRes?.success && shipRes.waybill) {
-                            await updateDoc(doc(db, "orders", orderDocId), {
-                                shippingProvider: "iThink Logistics",
-                                shippingStatus: "Manifested",
-                                awbCode: shipRes.waybill,
-                                trackingNumber: shipRes.waybill,
-                                courierName: shipRes.logisticName || "iThink Express",
-                                trackingUrl: shipRes.trackingUrl || `https://ithinklogistics.trackshipment.in/${shipRes.waybill}`
-                            });
-                        }
-                    }).catch(err => console.error("[VerifyOrder] iThink dispatch error:", err.message));
-                } catch (bgErr) {
-                    console.warn("[VerifyOrder] Background tasks warning:", bgErr.message);
-                }
-
-                return res.status(200).json({
-                    success: true,
-                    verified: true,
-                    orderId: orderDocId,
-                    orderNumber: orderData.orderNumber,
-                    paymentId: finalPaymentId,
-                    order: { ...orderData, ...updates }
-                });
             }
 
-            // Already paid: ensure confirmation email is sent if previously pending/failed
-            if (!orderData.emailStatus || orderData.emailStatus?.customer !== "sent") {
+            const currentOrderSnapshot = { ...orderData, ...updates };
+
+            // 2. Concurrency-Safe Stock Deduction (Bug 2 Fix)
+            if (!isInventoryDeducted) {
                 try {
-                    const emailResult = await sendOrderEmails({
-                        ...orderData,
+                    console.log(`[VerifyOrder] Concurrency-safe stock deduction for order ${orderDocId}...`);
+                    await deductOrderInventory(db, orderDocId, orderData.items, orderData.userId);
+                    currentOrderSnapshot.inventoryDeducted = true;
+                } catch (invErr) {
+                    console.error(`[VerifyOrder] Stock deduction error for order ${orderDocId}:`, invErr.message);
+                }
+            }
+
+            // 3. Dispatch Order Confirmation Email (Bug 1 Fix - Awaited & Idempotent)
+            let emailStatus = currentOrderSnapshot.emailStatus || { customer: "pending", admin: "pending" };
+            if (emailStatus.customer !== "sent") {
+                try {
+                    console.log(`[VerifyOrder] Sending order confirmation email for order ${orderDocId} to ${orderData.customerEmail}...`);
+                    emailStatus = await sendOrderEmails({
+                        ...currentOrderSnapshot,
                         orderId: orderDocId,
                         orderNumber: orderData.orderNumber,
-                        createdAt: orderData.createdAt || new Date().toISOString()
+                        awbCode: currentOrderSnapshot.awbCode || null,
+                        courierName: currentOrderSnapshot.courierName || null,
+                        trackingUrl: currentOrderSnapshot.trackingUrl || null,
+                        createdAt: orderData.createdAt
+                            ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : new Date(orderData.createdAt).toISOString())
+                            : new Date().toISOString()
                     });
-                    await updateDoc(doc(db, "orders", orderDocId), { emailStatus: emailResult });
-                    orderData.emailStatus = emailResult;
-                } catch (e) {
-                    console.error("[VerifyOrder] Existing order email send error:", e.message);
+
+                    await updateDoc(doc(db, "orders", orderDocId), { emailStatus });
+                    currentOrderSnapshot.emailStatus = emailStatus;
+
+                    // Audit log to Firebase email_logs
+                    const emailLogRef = doc(collection(db, "email_logs"));
+                    await setDoc(emailLogRef, {
+                        orderId: orderDocId,
+                        orderNumber: orderData.orderNumber,
+                        customerEmail: orderData.customerEmail,
+                        status: emailStatus,
+                        gateway: "Cashfree",
+                        paymentId: finalPaymentId,
+                        sentAt: serverTimestamp(),
+                        type: "Cashfree Order Confirmation"
+                    });
+                    console.log(`[VerifyOrder] Confirmation email sent and logged successfully for order ${orderDocId}.`);
+                } catch (emailErr) {
+                    console.error(`[VerifyOrder] Failed to send order confirmation email for order ${orderDocId}:`, emailErr);
+                }
+            }
+
+            // 4. Dispatch Courier Manifest (iThink Logistics)
+            if (!currentOrderSnapshot.awbCode) {
+                try {
+                    const shipRes = await createOrderShipment(currentOrderSnapshot);
+                    if (shipRes?.success && shipRes.waybill) {
+                        const shipUpdates = {
+                            shippingProvider: "iThink Logistics",
+                            shippingStatus: "Manifested",
+                            awbCode: shipRes.waybill,
+                            trackingNumber: shipRes.waybill,
+                            courierName: shipRes.logisticName || "iThink Express",
+                            trackingUrl: shipRes.trackingUrl || `https://ithinklogistics.trackshipment.in/${shipRes.waybill}`
+                        };
+                        await updateDoc(doc(db, "orders", orderDocId), shipUpdates);
+                        Object.assign(currentOrderSnapshot, shipUpdates);
+                    }
+                } catch (shipErr) {
+                    console.warn("[VerifyOrder] iThink dispatch pending notice:", shipErr.message);
                 }
             }
 
@@ -360,12 +320,13 @@ export default async function handler(req, res) {
                 verified: true,
                 orderId: orderDocId,
                 orderNumber: orderData.orderNumber,
-                paymentId: orderData.paymentId || finalPaymentId,
-                order: orderData
+                paymentId: finalPaymentId,
+                order: currentOrderSnapshot
             });
         }
 
-        // If order document was not found (orphan recovery)
+        // ── 5. Orphan Order Recovery (if order record was not found initially) ──
+        console.warn(`[VerifyOrder] Order doc not found for cashfreeOrderId: ${cashfreeOrderId}. Initiating orphan order recovery...`);
         const newOrderRef = doc(collection(db, "orders"));
         const orderId = newOrderRef.id;
         const orderNumber = generateOrderNumber();
@@ -413,10 +374,45 @@ export default async function handler(req, res) {
                 }
             ],
             createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            inventoryDeducted: false,
+            emailStatus: { customer: "pending", admin: "pending" }
         };
 
         await setDoc(newOrderRef, recoveredOrder);
+
+        // Deduct inventory and dispatch email for recovered order
+        try {
+            await deductOrderInventory(db, orderId, recoveredOrder.items);
+            recoveredOrder.inventoryDeducted = true;
+        } catch (rInvErr) {
+            console.error(`[VerifyOrder] Stock deduction error for recovered order ${orderId}:`, rInvErr.message);
+        }
+
+        try {
+            const emailStatus = await sendOrderEmails({
+                ...recoveredOrder,
+                orderId,
+                orderNumber,
+                createdAt: new Date().toISOString()
+            });
+            await updateDoc(doc(db, "orders", orderId), { emailStatus });
+            recoveredOrder.emailStatus = emailStatus;
+
+            const emailLogRef = doc(collection(db, "email_logs"));
+            await setDoc(emailLogRef, {
+                orderId,
+                orderNumber,
+                customerEmail: recoveredOrder.customerEmail,
+                status: emailStatus,
+                gateway: "Cashfree (Recovered)",
+                paymentId: finalPaymentId,
+                sentAt: serverTimestamp(),
+                type: "Cashfree Order Confirmation"
+            });
+        } catch (rEmailErr) {
+            console.error(`[VerifyOrder] Email error for recovered order ${orderId}:`, rEmailErr.message);
+        }
 
         return res.status(200).json({
             success: true,

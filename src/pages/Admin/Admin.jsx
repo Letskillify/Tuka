@@ -288,7 +288,16 @@ const Admin = () => {
       case "EditProduct":
         return <ProductEditor product={editingProduct} onCancel={() => { setEditingProduct(null); setActiveItem("Products"); }} onSuccess={() => { setEditingProduct(null); setActiveItem("Products"); }} />;
       default:
-        return <DashboardOverview products={products} users={users} orders={orders} onViewProducts={() => setActiveItem("Products")} isDarkMode={isDarkMode} />;
+        return (
+          <DashboardOverview
+            products={products}
+            users={users}
+            orders={orders}
+            onViewProducts={() => setActiveItem("Products")}
+            onViewOrders={() => setActiveItem("Orders")}
+            isDarkMode={isDarkMode}
+          />
+        );
     }
   };
 
@@ -325,37 +334,34 @@ const Admin = () => {
         <button
           onClick={() => setActiveItem("Dashboard")}
           title="Dashboard"
-          className={`mb-1.5 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+          className={`mb-2 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
             } ${activeItem === "Dashboard" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
         >
           <LayoutDashboard size={15} />
           {!collapsed && "Dashboard"}
         </button>
 
-        {/* Orders (Fulfillment & Payments) */}
+        {/* Orders Tab */}
         <button
           onClick={() => setActiveItem("Orders")}
           title="Orders"
-          className={`mb-3 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
-            } ${activeItem === "Orders" ? "bg-[#a4143e] text-white font-bold shadow-md" : "text-white/80 hover:bg-white/10"}`}
+          className={`mb-4 flex w-full items-center rounded-lg font-semibold transition-all relative ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+            } ${activeItem === "Orders" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
         >
-          <div className="relative">
-            <ShoppingBag size={15} />
-            {orders.length > 0 && (
-              <span className="absolute -top-1.5 -right-2 grid h-4 min-w-[16px] px-1 place-items-center rounded-full bg-emerald-500 text-[9px] font-bold text-white leading-none">
-                {orders.length}
-              </span>
-            )}
-          </div>
-          {!collapsed && (
-            <div className="flex-1 flex items-center justify-between">
-              <span className="text-left">Orders & Payments</span>
+          <ShoppingBag size={15} />
+          {!collapsed ? (
+            <>
+              <span className="flex-1 text-left">Orders</span>
               {orders.length > 0 && (
-                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full text-white">
+                <span className="bg-[#e8c37b] text-[#570819] text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                   {orders.length}
                 </span>
               )}
-            </div>
+            </>
+          ) : (
+            orders.length > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#e8c37b]" />
+            )
           )}
         </button>
 
@@ -413,18 +419,6 @@ const Admin = () => {
             </button>
           </div>
         ))}
-
-        <div className="mt-1">
-          <button
-            onClick={() => setActiveItem("Users")}
-            title="Patrons & Users"
-            className={`flex w-full items-center rounded-lg transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2"
-              } ${activeItem === "Users" ? "bg-[#a4143e] text-white font-bold" : "text-white/80 hover:bg-white/10"}`}
-          >
-            <Users size={15} />
-            {!collapsed && <span className="flex-1 text-left">Patrons / Users</span>}
-          </button>
-        </div>
 
         {!collapsed && (
           <>

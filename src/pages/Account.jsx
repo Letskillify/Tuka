@@ -420,12 +420,24 @@ const Account = () => {
     }
   };
 
-  const filteredOrders = recentOrders.filter(order => {
+  const getAccountOrderStatusBadge = (rawStatus) => {
+    const norm = String(rawStatus || "confirmed").toLowerCase().trim();
+    if (norm.includes("delivered")) return { label: "Delivered", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    if (norm.includes("shipped") || norm.includes("transit")) return { label: "Shipped", bg: "bg-sky-50 text-sky-700 border-sky-200" };
+    if (norm.includes("packed")) return { label: "Packed", bg: "bg-amber-50 text-amber-700 border-amber-200" };
+    if (norm.includes("processing")) return { label: "Processing", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+    if (norm.includes("cancel")) return { label: "Cancelled", bg: "bg-rose-50 text-rose-700 border-rose-200" };
+    if (norm.includes("return")) return { label: "Returned", bg: "bg-slate-100 text-slate-700 border-slate-200" };
+    return { label: "Confirmed", bg: "bg-blue-50 text-blue-700 border-blue-200" };
+  };
+
+  const filteredOrders = recentOrders.filter((order) => {
     if (orderFilter === 'all') return true;
-    const st = (order.status || 'processing').toLowerCase();
+    const st = String(order.orderStatus || order.status || 'confirmed').toLowerCase();
     if (orderFilter === 'in_transit') return st.includes('shipped') || st.includes('transit');
     if (orderFilter === 'delivered') return st.includes('delivered');
-    if (orderFilter === 'processing') return st.includes('processing') || st.includes('placed');
+    if (orderFilter === 'processing') return st.includes('processing') || st.includes('packed') || st.includes('confirmed') || st.includes('placed');
+    if (orderFilter === 'cancelled') return st.includes('cancel');
     return true;
   });
 
@@ -654,20 +666,9 @@ const Account = () => {
                           </div>
                           <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                             <span className="text-base font-serif font-bold text-[#b13896]">₹{Number(order.total || 0).toLocaleString()}</span>
-                            {(() => {
-                              const oStatus = (order.orderStatus || order.status || 'Confirmed').toLowerCase();
-                              const badgeCls =
-                                oStatus === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                oStatus === 'shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                                oStatus === 'packed' || oStatus === 'processing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                oStatus === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                'bg-blue-50 text-blue-700 border-blue-200';
-                              return (
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${badgeCls}`}>
-                                  {order.orderStatus || order.status || 'Confirmed'}
-                                </span>
-                              );
-                            })()}
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getAccountOrderStatusBadge(order.orderStatus || order.status).bg}`}>
+                              {getAccountOrderStatusBadge(order.orderStatus || order.status).label}
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -718,39 +719,37 @@ const Account = () => {
                   {filteredOrders.length > 0 ? (
                     <div className="space-y-6">
                       {filteredOrders.map((order) => {
-                        const rawStatus = (order.orderStatus || order.status || 'Confirmed').toLowerCase();
-                        const isShipped = rawStatus.includes('shipped') || rawStatus.includes('transit') || rawStatus.includes('delivered');
+                        const stBadge = getAccountOrderStatusBadge(order.orderStatus || order.status);
+                        const rawStatus = String(order.orderStatus || order.status || 'confirmed').toLowerCase();
+                        const isCancelled = rawStatus.includes('cancel');
                         const isDelivered = rawStatus.includes('delivered');
-                        const isPacked = rawStatus.includes('packed') || rawStatus.includes('processing') || isShipped;
-                        const isCancelled = rawStatus.includes('cancelled');
-
-                        const statusBadgeCls =
-                          rawStatus === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          rawStatus === 'shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                          rawStatus === 'packed' || rawStatus === 'processing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                          rawStatus === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          'bg-blue-50 text-blue-700 border-blue-200';
+                        const isShipped = isDelivered || rawStatus.includes('shipped') || rawStatus.includes('transit');
+                        const isPacked = isShipped || rawStatus.includes('packed') || rawStatus.includes('processing');
+                        const isConfirmed = isPacked || rawStatus.includes('confirmed') || rawStatus.includes('placed');
+                        const payId = order.paymentId || order.cashfreePaymentId || order.cfPaymentId;
 
                         return (
                           <div key={order.id} className="p-5 sm:p-6 rounded-2xl bg-[#F8F4EF] border border-[#e6ded8] space-y-5">
 
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                               <div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-[#b13896] block">Order Number</span>
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#b13896]">Order Number</span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${stBadge.bg}`}>
+                                    {stBadge.label}
+                                  </span>
+                                </div>
                                 <h4 className="text-base font-bold text-slate-900 font-mono">#{order.orderNumber || order.id.slice(0, 10).toUpperCase()}</h4>
                                 <div className="flex flex-wrap items-center gap-2 mt-1">
                                   <span className="text-xs text-slate-500">
                                     Date: {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
                                   </span>
-                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusBadgeCls}`}>
-                                    {order.orderStatus || order.status || 'Confirmed'}
-                                  </span>
                                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${order.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                                     Payment: {order.paymentStatus || 'Pending'}
                                   </span>
-                                  {order.paymentId && (
+                                  {payId && (
                                     <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                      Ref: {order.paymentId}
+                                      Ref: {payId}
                                     </span>
                                   )}
                                 </div>
@@ -763,33 +762,33 @@ const Account = () => {
 
                             {/* Status Timeline */}
                             <div className="space-y-2">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Fulfillment Progression</span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Status Timeline</span>
                               {isCancelled ? (
-                                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 text-center">
-                                  Order Cancelled
+                                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700">
+                                  This order was marked as Cancelled.
                                 </div>
                               ) : (
                                 <div className="grid grid-cols-4 gap-2 text-center pt-1">
                                   <div className="space-y-1">
-                                    <div className="w-8 h-8 rounded-full bg-[#b13896] text-white flex items-center justify-center mx-auto shadow-sm">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto shadow-xs transition-colors ${isConfirmed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
                                       <Check size={14} />
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-800 block">Confirmed</span>
+                                    <span className="text-[10px] font-bold text-slate-800 block">Placed</span>
                                   </div>
                                   <div className="space-y-1">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isPacked ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-xs ${isPacked ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
                                       <Package size={14} />
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-800 block">Processing</span>
+                                    <span className="text-[10px] font-bold text-slate-800 block">Packed</span>
                                   </div>
                                   <div className="space-y-1">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isShipped ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-xs ${isShipped ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
                                       <Truck size={14} />
                                     </div>
                                     <span className="text-[10px] font-bold text-slate-800 block">Shipped</span>
                                   </div>
                                   <div className="space-y-1">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isDelivered ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-xs ${isDelivered ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
                                       <CheckCircle size={14} />
                                     </div>
                                     <span className="text-[10px] font-bold text-slate-800 block">Delivered</span>
@@ -829,25 +828,35 @@ const Account = () => {
 
                             {/* Actions */}
                             <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                              <button
-                                onClick={() => {
-                                  setSelectedInvoiceOrder(order);
-                                  setShowInvoiceModal(true);
-                                }}
-                                className="px-4 py-2 bg-white border border-[#e6ded8] hover:border-[#b13896] text-[#b13896] text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <FileText size={14} /> Tax Invoice
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedInvoiceOrder(order);
+                                    setShowInvoiceModal(true);
+                                  }}
+                                  className="px-4 py-2 bg-white border border-[#e6ded8] hover:border-[#b13896] text-[#b13896] text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <FileText size={14} /> Tax Invoice
+                                </button>
 
-                              <button
-                                onClick={() => {
-                                  setTrackWaybillInput(order.awbCode || order.orderNumber || order.id);
-                                  setActiveTab('tracking');
-                                }}
-                                className="px-4 py-2 bg-[#161114] hover:bg-[#b13896] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                <button
+                                  onClick={() => {
+                                    setTrackWaybillInput(order.awbCode || order.trackingNumber || order.orderNumber || order.id);
+                                    setActiveTab('tracking');
+                                  }}
+                                  className="px-4 py-2 bg-[#161114] hover:bg-[#b13896] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <Truck size={14} /> Track Package
+                                </button>
+                              </div>
+
+                              <Link
+                                to={`/orders?orderNumber=${order.orderNumber || order.id}`}
+                                className="px-4 py-2 bg-[#b13896]/10 hover:bg-[#b13896] hover:text-white text-[#b13896] text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer"
                               >
-                                <Truck size={14} /> Track Package
-                              </button>
+                                <span>Order Details</span>
+                                <ChevronRight size={13} />
+                              </Link>
                             </div>
                           </div>
                         );

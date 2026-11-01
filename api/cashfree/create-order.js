@@ -101,14 +101,24 @@ export default async function handler(req, res) {
             }
 
             let unitPrice = Number(pData.price || rawItem.price || 0);
-            let availableStock = Number(pData.stock || 100);
+            let availableStock = pData.stock !== undefined && pData.stock !== null ? Number(pData.stock) : 0;
 
             if (selectedSize && Array.isArray(pData.sizeVariants) && pData.sizeVariants.length > 0) {
-                const variant = pData.sizeVariants.find((v) => v.size === selectedSize);
+                const variant = pData.sizeVariants.find(
+                    (v) => String(v.size || "").trim().toUpperCase() === String(selectedSize).trim().toUpperCase()
+                );
                 if (variant) {
                     unitPrice = Number(variant.price || pData.price || 0);
-                    availableStock = Number(variant.stock || 100);
+                    availableStock = variant.stock !== undefined && variant.stock !== null ? Number(variant.stock) : 0;
                 }
+            }
+
+            if (availableStock < qty) {
+                const sizeLabel = selectedSize ? ` (Size: ${selectedSize})` : "";
+                return res.status(409).json({
+                    error: `Insufficient stock for "${pData.name || rawItem.name || baseId}"${sizeLabel}. Available: ${availableStock}, Requested: ${qty}`,
+                    code: "INSUFFICIENT_STOCK"
+                });
             }
 
             const itemSubtotal = unitPrice * qty;
@@ -244,6 +254,7 @@ export default async function handler(req, res) {
             orderStatus: "payment_pending",
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+            inventoryDeducted: false,
             emailStatus: { customer: "pending", admin: "pending" }
         };
 
