@@ -275,12 +275,12 @@ const generateAdminEmailHtml = (order) => {
 
 export const sendOrderEmails = async (orderData) => {
   loadEnvFallback();
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const smtpFrom = process.env.SMTP_FROM || `"House of Tuka" <orders@tuka.in>`;
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@tuka.in";
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = Number(process.env.SMTP_PORT || 465);
+  const smtpUser = (process.env.SMTP_USER || "tukasupport@gmail.com").trim();
+  const smtpPass = (process.env.SMTP_PASS || "vfzoaatozycaowzh").trim();
+  const smtpFrom = process.env.SMTP_FROM || `"House of Tuka" <tukasupport@gmail.com>`;
+  const adminEmail = (process.env.ADMIN_EMAIL || "tukasupport@gmail.com").trim();
 
   const emailResult = {
     customer: "pending",

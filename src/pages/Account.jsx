@@ -652,11 +652,22 @@ const Account = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                             <span className="text-base font-serif font-bold text-[#b13896]">₹{Number(order.total || 0).toLocaleString()}</span>
-                            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-rose-50 text-[#b13896] border border-rose-200">
-                              {order.status || 'Processing'}
-                            </span>
+                            {(() => {
+                              const oStatus = (order.orderStatus || order.status || 'Confirmed').toLowerCase();
+                              const badgeCls =
+                                oStatus === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                oStatus === 'shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                                oStatus === 'packed' || oStatus === 'processing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                oStatus === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                'bg-blue-50 text-blue-700 border-blue-200';
+                              return (
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${badgeCls}`}>
+                                  {order.orderStatus || order.status || 'Confirmed'}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
                       ))}
@@ -707,9 +718,18 @@ const Account = () => {
                   {filteredOrders.length > 0 ? (
                     <div className="space-y-6">
                       {filteredOrders.map((order) => {
-                        const status = (order.status || 'Processing').toLowerCase();
-                        const isShipped = status.includes('shipped') || status.includes('transit') || status.includes('delivered');
-                        const isDelivered = status.includes('delivered');
+                        const rawStatus = (order.orderStatus || order.status || 'Confirmed').toLowerCase();
+                        const isShipped = rawStatus.includes('shipped') || rawStatus.includes('transit') || rawStatus.includes('delivered');
+                        const isDelivered = rawStatus.includes('delivered');
+                        const isPacked = rawStatus.includes('packed') || rawStatus.includes('processing') || isShipped;
+                        const isCancelled = rawStatus.includes('cancelled');
+
+                        const statusBadgeCls =
+                          rawStatus === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          rawStatus === 'shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                          rawStatus === 'packed' || rawStatus === 'processing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          rawStatus === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          'bg-blue-50 text-blue-700 border-blue-200';
 
                         return (
                           <div key={order.id} className="p-5 sm:p-6 rounded-2xl bg-[#F8F4EF] border border-[#e6ded8] space-y-5">
@@ -722,8 +742,11 @@ const Account = () => {
                                   <span className="text-xs text-slate-500">
                                     Date: {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
                                   </span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusBadgeCls}`}>
+                                    {order.orderStatus || order.status || 'Confirmed'}
+                                  </span>
                                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${order.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                                    {order.paymentStatus || 'Pending'}
+                                    Payment: {order.paymentStatus || 'Pending'}
                                   </span>
                                   {order.paymentId && (
                                     <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -740,27 +763,39 @@ const Account = () => {
 
                             {/* Status Timeline */}
                             <div className="space-y-2">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Status Timeline</span>
-                              <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                                <div className="space-y-1">
-                                  <div className="w-8 h-8 rounded-full bg-[#b13896] text-white flex items-center justify-center mx-auto shadow-sm">
-                                    <Check size={14} />
-                                  </div>
-                                  <span className="text-[10px] font-bold text-slate-800 block">Placed</span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Fulfillment Progression</span>
+                              {isCancelled ? (
+                                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 text-center">
+                                  Order Cancelled
                                 </div>
-                                <div className="space-y-1">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isShipped ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'}`}>
-                                    <Truck size={14} />
+                              ) : (
+                                <div className="grid grid-cols-4 gap-2 text-center pt-1">
+                                  <div className="space-y-1">
+                                    <div className="w-8 h-8 rounded-full bg-[#b13896] text-white flex items-center justify-center mx-auto shadow-sm">
+                                      <Check size={14} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-800 block">Confirmed</span>
                                   </div>
-                                  <span className="text-[10px] font-bold text-slate-800 block">Shipped</span>
-                                </div>
-                                <div className="space-y-1">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isDelivered ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                                    <CheckCircle size={14} />
+                                  <div className="space-y-1">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isPacked ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                      <Package size={14} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-800 block">Processing</span>
                                   </div>
-                                  <span className="text-[10px] font-bold text-slate-800 block">Delivered</span>
+                                  <div className="space-y-1">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isShipped ? 'bg-[#b13896] text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                      <Truck size={14} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-800 block">Shipped</span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-colors shadow-sm ${isDelivered ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                      <CheckCircle size={14} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-800 block">Delivered</span>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
 
                             {/* Items List */}

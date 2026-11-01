@@ -15,6 +15,7 @@ import {
     query,
     where,
     getDocs,
+    runTransaction,
     serverTimestamp
 } from "../_lib/firebaseServer.js";
 
@@ -46,6 +47,31 @@ export default async function handler(req, res) {
         const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
         const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
         const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
+
+        // Special Action: Resend Confirmation Email
+        if (req.body?.action === "resend-email") {
+            const targetId = req.body?.orderId || req.body?.orderNumber;
+            let foundSnap = null;
+            if (targetId) {
+                const direct = await getDoc(doc(db, "orders", targetId));
+                if (direct.exists()) foundSnap = direct;
+                else {
+                    const byNum = await getDocs(query(collection(db, "orders"), where("orderNumber", "==", targetId)));
+                    if (!byNum.empty) foundSnap = byNum.docs[0];
+                }
+            }
+            if (!foundSnap) {
+                return res.status(404).json({ error: "Order not found." });
+            }
+            const oData = { id: foundSnap.id, ...foundSnap.data() };
+            const emailRes = await sendOrderEmails({
+                ...oData,
+                orderId: foundSnap.id,
+                orderNumber: oData.orderNumber
+            });
+            await updateDoc(doc(db, "orders", foundSnap.id), { emailStatus: emailRes });
+            return res.status(200).json({ success: true, emailStatus: emailRes });
+        }
 
         // Special Admin / Customer Claim Action by Payment ID (e.g. for past unlinked payments like 688991276)
         if (req.body?.action === "claim-payment" || (claimPaymentId && !cashfreeOrderId)) {
@@ -203,7 +229,64 @@ export default async function handler(req, res) {
                     updatedAt: serverTimestamp()
                 };
 
-                await updateDoc(doc(db, "orders", orderDocId), updates);
+                // Deduct stock atomically inside a transaction
+                try {
+                    const orderItems = orderData.items || [];
+                    if (orderItems.length > 0) {
+                        await runTransaction(clientDb, async (transaction) => {
+                            // Read all product docs inside transaction
+                            const productSnaps = {};
+                            for (const item of orderItems) {
+                                const pid = String(item.productId || "").split("_")[0];
+                                if (!pid) continue;
+                                if (!productSnaps[pid]) {
+                                    const pRef = doc(clientDb, "products", pid);
+                                    productSnaps[pid] = { ref: pRef, snap: await transaction.get(pRef) };
+                                }
+                            }
+
+                            // Deduct stock per item
+                            for (const item of orderItems) {
+                                const pid = String(item.productId || "").split("_")[0];
+                                if (!pid) continue;
+                                const { ref: pRef, snap: pSnap } = productSnaps[pid] || {};
+                                if (!pRef || !pSnap?.exists()) continue;
+
+                                const pData = pSnap.data();
+                                const qty = Number(item.quantity || 1);
+                                const selectedSize = item.size || item.selectedSize || null;
+
+                                if (selectedSize && Array.isArray(pData.sizeVariants) && pData.sizeVariants.length > 0) {
+                                    const variantIdx = pData.sizeVariants.findIndex(v => v.size === selectedSize);
+                                    if (variantIdx > -1) {
+                                        const updatedVariants = pData.sizeVariants.map((v, i) =>
+                                            i === variantIdx
+                                                ? { ...v, stock: Math.max(0, Number(v.stock ?? 0) - qty) }
+                                                : v
+                                        );
+                                        transaction.update(pRef, { sizeVariants: updatedVariants, updatedAt: serverTimestamp() });
+                                    }
+                                } else {
+                                    transaction.update(pRef, {
+                                        stock: Math.max(0, Number(pData.stock ?? 0) - qty),
+                                        updatedAt: serverTimestamp()
+                                    });
+                                }
+                            }
+
+                            // Confirm the order within the same transaction
+                            transaction.update(doc(clientDb, "orders", orderDocId), updates);
+                        });
+                        console.log(`[VerifyOrder] Stock deducted for order ${orderData.orderNumber}`);
+                    } else {
+                        // No items (orphan recovery), just update the order
+                        await updateDoc(doc(db, "orders", orderDocId), updates);
+                    }
+                } catch (stockErr) {
+                    console.error("[VerifyOrder] Stock deduction transaction error:", stockErr.message);
+                    // Fallback: still update order status even if stock deduction fails
+                    await updateDoc(doc(db, "orders", orderDocId), updates);
+                }
 
                 if (orderData.userId) {
                     try {
@@ -211,9 +294,25 @@ export default async function handler(req, res) {
                     } catch (e) {}
                 }
 
-                // Dispatch Courier Manifest & Emails asynchronously
+                // Dispatch Courier Manifest & Emails
                 try {
                     const fullOrderSnapshot = { ...orderData, ...updates };
+
+                    // 1. Send Order Confirmation Email
+                    try {
+                        const emailResult = await sendOrderEmails({
+                            ...fullOrderSnapshot,
+                            orderId: orderDocId,
+                            orderNumber: orderData.orderNumber,
+                            createdAt: new Date().toISOString()
+                        });
+                        await updateDoc(doc(db, "orders", orderDocId), { emailStatus: emailResult });
+                        updates.emailStatus = emailResult;
+                    } catch (emailErr) {
+                        console.error("[VerifyOrder] Email dispatch error:", emailErr.message);
+                    }
+
+                    // 2. Dispatch Courier Shipment with iThink Logistics
                     createOrderShipment(fullOrderSnapshot).then(async (shipRes) => {
                         if (shipRes?.success && shipRes.waybill) {
                             await updateDoc(doc(db, "orders", orderDocId), {
@@ -226,13 +325,6 @@ export default async function handler(req, res) {
                             });
                         }
                     }).catch(err => console.error("[VerifyOrder] iThink dispatch error:", err.message));
-
-                    sendOrderEmails({
-                        ...fullOrderSnapshot,
-                        orderId: orderDocId,
-                        orderNumber: orderData.orderNumber,
-                        createdAt: new Date().toISOString()
-                    }).catch(err => console.error("[VerifyOrder] Email dispatch error:", err.message));
                 } catch (bgErr) {
                     console.warn("[VerifyOrder] Background tasks warning:", bgErr.message);
                 }
@@ -247,7 +339,22 @@ export default async function handler(req, res) {
                 });
             }
 
-            // Already paid
+            // Already paid: ensure confirmation email is sent if previously pending/failed
+            if (!orderData.emailStatus || orderData.emailStatus?.customer !== "sent") {
+                try {
+                    const emailResult = await sendOrderEmails({
+                        ...orderData,
+                        orderId: orderDocId,
+                        orderNumber: orderData.orderNumber,
+                        createdAt: orderData.createdAt || new Date().toISOString()
+                    });
+                    await updateDoc(doc(db, "orders", orderDocId), { emailStatus: emailResult });
+                    orderData.emailStatus = emailResult;
+                } catch (e) {
+                    console.error("[VerifyOrder] Existing order email send error:", e.message);
+                }
+            }
+
             return res.status(200).json({
                 success: true,
                 verified: true,

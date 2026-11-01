@@ -11,7 +11,8 @@ import {
     where,
     getDocs,
     runTransaction,
-    serverTimestamp
+    serverTimestamp,
+    increment
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -73,4 +74,4 @@ try {
     console.warn("[FirebaseServer] firebase-admin not initialized, using client SDK fallback", err?.message);
 }
 
-export { clientDb, adminDb, adminAuth, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, runTransaction, serverTimestamp };
+export { clientDb, adminDb, adminAuth, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, runTransaction, serverTimestamp, increment };

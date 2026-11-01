@@ -32,6 +32,28 @@ import {
 import Breadcrumb from "../components/Breadcrumb";
 import { motion, AnimatePresence } from "framer-motion";
 
+export const getOrderStatusInfo = (rawStatus) => {
+  const norm = String(rawStatus || "confirmed").toLowerCase().trim();
+  switch (norm) {
+    case "confirmed":
+      return { label: "Order Confirmed", step: 1, color: "text-blue-700 bg-blue-50 border-blue-200", dot: "bg-blue-500", desc: "Payment received. Master artisans preparing your authentic handloom drape." };
+    case "processing":
+      return { label: "Artisan Processing", step: 2, color: "text-indigo-700 bg-indigo-50 border-indigo-200", dot: "bg-indigo-500", desc: "Handloom drape is being tailored and prepared for dispatch." };
+    case "packed":
+      return { label: "Quality Inspected & Packed", step: 3, color: "text-amber-700 bg-amber-50 border-amber-200", dot: "bg-amber-500", desc: "Your handloom saree is sealed in authentic luxury packaging." };
+    case "shipped":
+      return { label: "Dispatched / In Transit", step: 4, color: "text-sky-700 bg-sky-50 border-sky-200", dot: "bg-sky-500", desc: "Package has been handed over to courier partner." };
+    case "delivered":
+      return { label: "Delivered", step: 5, color: "text-emerald-700 bg-emerald-50 border-emerald-200", dot: "bg-emerald-500", desc: "Package delivered to destination atelier. Enjoy your drape!" };
+    case "cancelled":
+      return { label: "Cancelled", step: -1, color: "text-rose-700 bg-rose-50 border-rose-200", dot: "bg-rose-500", desc: "This order has been cancelled." };
+    case "returned":
+      return { label: "Returned", step: -1, color: "text-slate-700 bg-slate-100 border-slate-200", dot: "bg-slate-500", desc: "This order has been processed for return." };
+    default:
+      return { label: rawStatus || "Confirmed", step: 1, color: "text-blue-700 bg-blue-50 border-blue-200", dot: "bg-blue-500", desc: "Order is confirmed and being prepared." };
+  }
+};
+
 const OrderDetails = () => {
   const { user } = useAuth();
   const { clearCart } = useStore();
@@ -197,89 +219,124 @@ const OrderDetails = () => {
     }
   };
 
-  // Fetch all orders for logged in user OR guest email
+  // Real-time Order synchronization for logged in user, guest email, and active URL order
   useEffect(() => {
-    let unsubUid = () => {};
-    let unsubEmail = () => {};
+    const unsubs = [];
+    const emailToUse = (user?.email || guestEmailSubmitted || "").trim().toLowerCase();
+    setLoading(true);
+    setErrorMsg("");
 
-    const fetchAllOrders = async () => {
-      setLoading(true);
-      setErrorMsg("");
+    const orderMap = new Map();
 
-      try {
-        const emailToUse = (user?.email || guestEmailSubmitted || "").trim().toLowerCase();
-        const orderMap = new Map();
+    const updateOrdersList = () => {
+      const list = Array.from(orderMap.values());
+      list.sort((a, b) => {
+        const toMillis = (v) => (v?.seconds ? v.seconds * 1000 : new Date(v || 0).getTime());
+        return toMillis(b.createdAt) - toMillis(a.createdAt);
+      });
+      setOrders(list);
+      setLoading(false);
+      setGuestLoading(false);
 
-        // 1. Direct Lookup by URL Order Identifier (orderNumber, id, cashfreeOrderId)
+      if (list.length > 0) {
         if (selectedOrderNum) {
-          try {
-            const numClean = selectedOrderNum.trim();
-            // Try by ID
-            const directSnap = await getDoc(doc(db, "orders", numClean));
-            if (directSnap.exists()) {
-              orderMap.set(directSnap.id, { id: directSnap.id, ...directSnap.data() });
-            }
-
-            // Try by orderNumber
-            const numQ = query(collection(db, "orders"), where("orderNumber", "==", numClean.toUpperCase()));
-            const numSnap = await getDocs(numQ);
-            numSnap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-
-            // Try by cashfreeOrderId
-            const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
-            const cfSnap = await getDocs(cfQ);
-            cfSnap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-          } catch (numErr) {
-            console.warn("[OrderDetails] Direct order query warning:", numErr.message);
-          }
-        }
-
-        // 2. Query by Authenticated User or Email
-        const qUid = user?.uid ? query(collection(db, "orders"), where("userId", "==", user.uid)) : null;
-        const qEmail = emailToUse ? query(collection(db, "orders"), where("customerEmail", "==", emailToUse)) : null;
-
-        const promises = [];
-        if (qUid) promises.push(getDocs(qUid));
-        if (qEmail) promises.push(getDocs(qEmail));
-
-        if (promises.length > 0) {
-          const results = await Promise.all(promises);
-          results.forEach((snap) => {
-            snap.docs.forEach((d) => {
-              orderMap.set(d.id, { id: d.id, ...d.data() });
-            });
+          const found = list.find(
+            (o) =>
+              o.orderNumber?.toUpperCase() === selectedOrderNum.trim().toUpperCase() ||
+              o.id === selectedOrderNum ||
+              o.cashfreeOrderId === selectedOrderNum.trim()
+          );
+          setActiveOrder(found || list[0]);
+        } else {
+          setActiveOrder((prev) => {
+            if (!prev) return list[0];
+            const updated = list.find((o) => o.id === prev.id || o.orderNumber === prev.orderNumber);
+            return updated || list[0];
           });
         }
-
-        const list = Array.from(orderMap.values());
-        list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        setOrders(list);
-
-        if (list.length > 0) {
-          if (selectedOrderNum) {
-            const found = list.find(
-              (o) => o.orderNumber?.toUpperCase() === selectedOrderNum.trim().toUpperCase() || o.id === selectedOrderNum || o.cashfreeOrderId === selectedOrderNum.trim()
-            );
-            setActiveOrder(found || list[0]);
-          } else {
-            setActiveOrder(list[0]);
-          }
-        } else {
-          setActiveOrder(null);
-          if (guestEmailSubmitted) {
-            setErrorMsg(`No orders found associated with email: ${guestEmailSubmitted}`);
-          }
+      } else {
+        setActiveOrder(null);
+        if (guestEmailSubmitted) {
+          setErrorMsg(`No orders found associated with email: ${guestEmailSubmitted}`);
         }
-      } catch (err) {
-        console.error("[OrderDetails] Fetch Error:", err);
-        setErrorMsg(err.message || "Failed to load orders.");
-      } finally {
-        setLoading(false);
-        setGuestLoading(false);
       }
     };
 
-    fetchAllOrders();
+    try {
+      // 1. Direct Lookup by URL Order Identifier
+      if (selectedOrderNum) {
+        const numClean = selectedOrderNum.trim();
+        const unsubDirect = onSnapshot(
+          doc(db, "orders", numClean),
+          (snap) => {
+            if (snap.exists()) {
+              orderMap.set(snap.id, { id: snap.id, ...snap.data() });
+              updateOrdersList();
+            }
+          },
+          () => {}
+        );
+        unsubs.push(unsubDirect);
+
+        const unsubNum = onSnapshot(
+          query(collection(db, "orders"), where("orderNumber", "==", numClean.toUpperCase())),
+          (snap) => {
+            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+            updateOrdersList();
+          },
+          () => {}
+        );
+        unsubs.push(unsubNum);
+
+        const unsubCf = onSnapshot(
+          query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean)),
+          (snap) => {
+            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+            updateOrdersList();
+          },
+          () => {}
+        );
+        unsubs.push(unsubCf);
+      }
+
+      // 2. Query by Authenticated User
+      if (user?.uid) {
+        const unsubUid = onSnapshot(
+          query(collection(db, "orders"), where("userId", "==", user.uid)),
+          (snap) => {
+            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+            updateOrdersList();
+          },
+          (err) => console.warn("Orders UID snapshot warning:", err)
+        );
+        unsubs.push(unsubUid);
+      }
+
+      // 3. Query by Email
+      if (emailToUse) {
+        const unsubEmail = onSnapshot(
+          query(collection(db, "orders"), where("customerEmail", "==", emailToUse)),
+          (snap) => {
+            snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+            updateOrdersList();
+          },
+          (err) => console.warn("Orders email snapshot warning:", err)
+        );
+        unsubs.push(unsubEmail);
+      }
+
+      if (!user?.uid && !emailToUse && !selectedOrderNum) {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error("[OrderDetails] Listener Setup Error:", err);
+      setErrorMsg(err.message || "Failed to load orders.");
+      setLoading(false);
+    }
+
+    return () => {
+      unsubs.forEach((u) => u && typeof u === "function" && u());
+    };
   }, [user, guestEmailSubmitted, selectedOrderNum]);
 
   // Handle Order Select
@@ -320,6 +377,7 @@ const OrderDetails = () => {
   const addr = activeOrder?.shippingAddress || {};
   const items = activeOrder?.items || [];
   const status = (activeOrder?.orderStatus || activeOrder?.status || "confirmed").toLowerCase();
+  const statusInfo = getOrderStatusInfo(activeOrder?.orderStatus || activeOrder?.status);
   const paymentStatus = activeOrder?.paymentStatus || "Paid";
 
   return (
@@ -526,12 +584,22 @@ const OrderDetails = () => {
                           </span>
                         </div>
                         <div className="text-right space-y-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-[#b13896] px-2 py-0.5 rounded border border-rose-100 block">
-                            {ord.paymentStatus || "Paid"}
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border block ${
+                            (ord.orderStatus || ord.status || "").toLowerCase() === "delivered" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                            (ord.orderStatus || ord.status || "").toLowerCase() === "shipped" ? "bg-sky-50 text-sky-700 border-sky-200" :
+                            (ord.orderStatus || ord.status || "").toLowerCase() === "packed" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                            (ord.orderStatus || ord.status || "").toLowerCase() === "cancelled" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                            "bg-blue-50 text-blue-700 border-blue-200"
+                          }`}>
+                            {ord.orderStatus || ord.status || "Confirmed"}
                           </span>
-                          {ord.paymentId && (
+                          {ord.paymentId ? (
                             <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 block">
                               Ref: {ord.paymentId}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold uppercase text-slate-400 block">
+                              {ord.paymentStatus || "Paid"}
                             </span>
                           )}
                         </div>
@@ -617,6 +685,89 @@ const OrderDetails = () => {
                         <span>Track Shipment</span>
                       </button>
                     </div>
+                  </div>
+
+                  {/* ── Fulfillment Timeline Progression Card ── */}
+                  <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-[#e5d5df]/60 shadow-sm space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b13896] block">
+                          Live Order Progression
+                        </span>
+                        <h3 className="font-serif text-2xl text-[#161114]">
+                          {statusInfo.label}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {statusInfo.desc}
+                        </p>
+                      </div>
+                      <span className={`self-start sm:self-auto text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border ${statusInfo.color}`}>
+                        {statusInfo.label}
+                      </span>
+                    </div>
+
+                    {/* 5-Step Stepper */}
+                    {statusInfo.step !== -1 && (
+                      <div className="grid grid-cols-5 gap-2 pt-2">
+                        {[
+                          { label: "Confirmed", icon: CheckCircle2, stepNum: 1 },
+                          { label: "Processing", icon: Clock, stepNum: 2 },
+                          { label: "Packed", icon: Package, stepNum: 3 },
+                          { label: "Shipped", icon: Truck, stepNum: 4 },
+                          { label: "Delivered", icon: Check, stepNum: 5 }
+                        ].map((st) => {
+                          const isPassed = statusInfo.step >= st.stepNum;
+                          const isCurrent = statusInfo.step === st.stepNum;
+                          const StepIcon = st.icon;
+
+                          return (
+                            <div key={st.label} className="text-center space-y-2">
+                              <div
+                                className={`w-10 h-10 rounded-2xl mx-auto flex items-center justify-center transition-all ${
+                                  isPassed
+                                    ? "bg-[#b13896] text-white shadow-md shadow-[#b13896]/20"
+                                    : "bg-slate-100 text-slate-400"
+                                } ${isCurrent ? "ring-4 ring-[#b13896]/20 scale-105" : ""}`}
+                              >
+                                <StepIcon size={18} strokeWidth={isPassed ? 2.5 : 1.8} />
+                              </div>
+                              <div>
+                                <p className={`text-xs font-bold leading-tight ${isPassed ? "text-slate-900" : "text-slate-400"}`}>
+                                  {st.label}
+                                </p>
+                                <span className="text-[10px] text-slate-400 hidden sm:block">Step {st.stepNum}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Tracking Information Banner if Courier Assigned */}
+                    {(activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.courierName) && (
+                      <div className="p-4 bg-sky-50/70 border border-sky-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0">
+                            <Truck size={18} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">
+                              Dispatched via {activeOrder.courierName || "iThink Logistics Partner"}
+                            </p>
+                            <p className="font-mono text-sky-800 text-[11px] mt-0.5">
+                              AWB Tracking Code: <strong>{activeOrder.awbCode || activeOrder.trackingNumber}</strong>
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleOpenTracking(activeOrder)}
+                          className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        >
+                          <span>Track Live</span>
+                          <ExternalLink size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Items Card */}

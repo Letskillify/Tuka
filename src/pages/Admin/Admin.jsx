@@ -325,11 +325,38 @@ const Admin = () => {
         <button
           onClick={() => setActiveItem("Dashboard")}
           title="Dashboard"
-          className={`mb-4 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+          className={`mb-1.5 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
             } ${activeItem === "Dashboard" ? "bg-[#a4143e] text-white" : "text-white/80 hover:bg-white/10"}`}
         >
           <LayoutDashboard size={15} />
           {!collapsed && "Dashboard"}
+        </button>
+
+        {/* Orders (Fulfillment & Payments) */}
+        <button
+          onClick={() => setActiveItem("Orders")}
+          title="Orders"
+          className={`mb-3 flex w-full items-center rounded-lg font-semibold transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+            } ${activeItem === "Orders" ? "bg-[#a4143e] text-white font-bold shadow-md" : "text-white/80 hover:bg-white/10"}`}
+        >
+          <div className="relative">
+            <ShoppingBag size={15} />
+            {orders.length > 0 && (
+              <span className="absolute -top-1.5 -right-2 grid h-4 min-w-[16px] px-1 place-items-center rounded-full bg-emerald-500 text-[9px] font-bold text-white leading-none">
+                {orders.length}
+              </span>
+            )}
+          </div>
+          {!collapsed && (
+            <div className="flex-1 flex items-center justify-between">
+              <span className="text-left">Orders & Payments</span>
+              {orders.length > 0 && (
+                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full text-white">
+                  {orders.length}
+                </span>
+              )}
+            </div>
+          )}
         </button>
 
         {!collapsed && <p className="mb-2 px-3 text-[9px] font-medium tracking-wide text-white/50">CATALOG</p>}
@@ -386,6 +413,18 @@ const Admin = () => {
             </button>
           </div>
         ))}
+
+        <div className="mt-1">
+          <button
+            onClick={() => setActiveItem("Users")}
+            title="Patrons & Users"
+            className={`flex w-full items-center rounded-lg transition-all ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2"
+              } ${activeItem === "Users" ? "bg-[#a4143e] text-white font-bold" : "text-white/80 hover:bg-white/10"}`}
+          >
+            <Users size={15} />
+            {!collapsed && <span className="flex-1 text-left">Patrons / Users</span>}
+          </button>
+        </div>
 
         {!collapsed && (
           <>

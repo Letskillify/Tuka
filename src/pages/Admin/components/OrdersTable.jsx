@@ -1242,9 +1242,47 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                         <span>Payment Method:</span>
                         <strong className="text-slate-900">{selectedOrder.paymentMethod || "Online Payment"}</strong>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span>Payment ID:</span>
-                        <span className="font-mono text-[11px] text-slate-500">{selectedOrder.paymentId || "N/A"}</span>
+                        {selectedOrder.paymentId ? (
+                          <span className="font-mono text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {selectedOrder.paymentId}
+                          </span>
+                        ) : selectedOrder.cashfreeOrderId ? (
+                          <span className="font-mono text-[11px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                            CF: {selectedOrder.cashfreeOrderId}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">N/A</span>
+                        )}
+                      </div>
+                      <div className="pt-1.5 pb-1 flex items-center justify-between border-t border-slate-200/60">
+                        <span className="text-[11px] text-slate-500">Email: <strong>{selectedOrder.emailStatus?.customer === "sent" ? "Delivered" : (selectedOrder.emailStatus?.customer || "Pending")}</strong></span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              showToast("Sending confirmation email...");
+                              const res = await fetch("/api/cashfree/verify-order", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "resend-email", orderId: selectedOrder.id })
+                              });
+                              const data = await res.json();
+                              if (data.success && data.emailStatus?.customer === "sent") {
+                                showToast(`Confirmation email sent to ${selectedOrder.customerEmail}!`);
+                              } else {
+                                showToast(data.error || "Failed to send email. Check SMTP settings.");
+                              }
+                            } catch (e) {
+                              showToast("Error sending email: " + e.message);
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#b13896] border border-purple-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <Mail size={12} />
+                          <span>Resend Email</span>
+                        </button>
                       </div>
                       <div className="flex justify-between">
                         <span>Subtotal:</span>

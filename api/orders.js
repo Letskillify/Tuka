@@ -11,7 +11,8 @@ import {
   where,
   getDocs,
   runTransaction,
-  serverTimestamp
+  serverTimestamp,
+  increment
 } from "./_lib/firebaseServer.js";
 import { sendOrderEmails } from "./_lib/emailService.js";
 import { createOrderShipment } from "./_lib/ithinkLogistics.js";
@@ -419,10 +420,64 @@ export default async function handler(req, res) {
       emailStatus: { customer: "pending", admin: "pending" }
     };
 
-    // 5. Save Order Logic (with REST fallback)
+    // 5. Save Order Logic (with stock deduction inside transaction)
     try {
       await runTransaction(db, async (transaction) => {
-        // Step C: Set Order Document directly (Skip stock deduction to avoid offline transaction drops)
+        // Re-read product docs inside transaction to get latest stock (prevents race conditions)
+        const productRefs = [...new Map(validatedItems.map(item => [item.productId, doc(db, "products", item.productId)])).entries()];
+        const productSnaps = {};
+        for (const [pid, pRef] of productRefs) {
+          const snap = await transaction.get(pRef);
+          productSnaps[pid] = snap;
+        }
+
+        // Verify stock is still sufficient (race condition guard inside transaction)
+        for (const item of validatedItems) {
+          const snap = productSnaps[item.productId];
+          if (!snap || !snap.exists()) {
+            throw new Error(`RACE_CONDITION: Product ${item.productId} not found during transaction.`);
+          }
+          const pData = snap.data();
+          if (item.variantIndex > -1 && Array.isArray(pData.sizeVariants)) {
+            const variant = pData.sizeVariants[item.variantIndex];
+            if (Number(variant?.stock ?? 0) < item.quantity) {
+              throw new Error(`RACE_CONDITION: Insufficient stock for ${pData.name} (size: ${item.size}).`);
+            }
+          } else {
+            if (Number(pData.stock ?? 0) < item.quantity) {
+              throw new Error(`RACE_CONDITION: Insufficient stock for ${pData.name}.`);
+            }
+          }
+        }
+
+        // Deduct stock for each ordered item
+        for (const item of validatedItems) {
+          const pRef = productRefs.find(([pid]) => pid === item.productId)?.[1];
+          if (!pRef) continue;
+
+          const pData = productSnaps[item.productId].data();
+
+          if (item.variantIndex > -1 && Array.isArray(pData.sizeVariants)) {
+            // Deduct from the specific size variant
+            const updatedVariants = pData.sizeVariants.map((v, i) =>
+              i === item.variantIndex
+                ? { ...v, stock: Math.max(0, Number(v.stock ?? 0) - item.quantity) }
+                : v
+            );
+            transaction.update(pRef, {
+              sizeVariants: updatedVariants,
+              updatedAt: serverTimestamp()
+            });
+          } else {
+            // Deduct from top-level product stock
+            transaction.update(pRef, {
+              stock: Math.max(0, Number(pData.stock ?? 0) - item.quantity),
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+
+        // Save the order document
         transaction.set(newOrderRef, orderData);
 
         if (finalUserId) {
@@ -443,7 +498,11 @@ export default async function handler(req, res) {
           isGuest: isGuestUser
         }, { merge: true });
       });
+      console.log(`[Orders] Stock deducted successfully for order ${orderNumber}`);
     } catch (e) {
+      if (e.message?.startsWith("RACE_CONDITION")) {
+        throw e; // re-throw to return 409 to client
+      }
       if (e.message?.includes("offline") || e.code === "unavailable") {
         console.warn("[Orders] Transaction Offline. Bypassing SDK with pure REST API save!");
         let projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
