@@ -282,13 +282,33 @@ const Checkout = () => {
           items: checkoutItems.map((i) => ({
             productId: String(i.id).split("_")[0],
             size: i.selectedSize || (i.id.includes("_") ? i.id.split("_")[1] : null),
-            quantity: i.quantity || 1
+            quantity: i.quantity || 1,
+            price: i.price,
+            name: i.name,
+            image: i.image
           })),
           customerDetails: {
             id: user?.uid || "guest",
+            name: formData.name,
             email: formData.email,
             phone: formData.phone
-          }
+          },
+          shippingAddress: {
+            fullName: formData.name,
+            phone: formData.phone,
+            altPhone: formData.altPhone || "",
+            houseNumber: formData.houseNumber || "",
+            street: formData.street || "",
+            locality: formData.locality || "",
+            landmark: formData.landmark || "",
+            city: formData.city || "",
+            state: formData.state || "",
+            pincode: formData.pincode || "",
+            addressType: formData.addressType || "Home"
+          },
+          userId: user?.uid || null,
+          idempotencyKey,
+          returnUrl: `${window.location.origin}/orders?cf_order_id={order_id}`
         })
       });
 
@@ -303,6 +323,17 @@ const Checkout = () => {
         throw new Error(cData.error || "Could not initialize online payment.");
       }
 
+      // Persist pending order identifier locally so verification can immediately pick it up
+      try {
+        localStorage.setItem("tuka_pending_checkout", JSON.stringify({
+          cashfreeOrderId: cData.order_id,
+          orderId: cData.internal_order_id,
+          orderNumber: cData.order_number,
+          email: formData.email
+        }));
+        localStorage.setItem("tuka_pending_email", formData.email);
+      } catch (e) {}
+
       // Check for dev mode fallback
       if (typeof cData.payment_session_id === "string" && cData.payment_session_id.includes("_mock_")) {
         await submitOrderToBackend("cashfree", {
@@ -315,7 +346,8 @@ const Checkout = () => {
       const cashfree = await loadCashfreeSDK(mode);
 
       const checkoutOptions = {
-        paymentSessionId: cData.payment_session_id
+        paymentSessionId: cData.payment_session_id,
+        redirectTarget: "_self"
       };
 
       cashfree.checkout(checkoutOptions).then(async (result) => {
@@ -329,14 +361,8 @@ const Checkout = () => {
           return;
         }
 
-        if (result.paymentDetails) {
-          // Verify with local backend
-          await submitOrderToBackend("cashfree", {
-            cashfreeOrderId: cData.order_id
-          });
-        } else if (result.redirect) {
-          console.log("Cashfree redirecting...");
-        }
+        // Seamless redirection to orders page for verification and status display
+        navigate(`/orders?cf_order_id=${encodeURIComponent(cData.order_id)}`);
       });
 
     } catch (err) {

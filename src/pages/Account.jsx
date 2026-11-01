@@ -639,10 +639,17 @@ const Account = () => {
                               <Package size={22} />
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-slate-900 font-mono">#{order.id.slice(0, 10).toUpperCase()}</p>
-                              <p className="text-[11px] text-slate-400 font-medium">
-                                {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
-                              </p>
+                              <p className="text-xs font-bold text-slate-900 font-mono">#{order.orderNumber || order.id.slice(0, 10).toUpperCase()}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[11px] text-slate-400 font-medium">
+                                  {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
+                                </span>
+                                {order.paymentId && (
+                                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                    Ref: {order.paymentId}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
@@ -710,10 +717,20 @@ const Account = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                               <div>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#b13896] block">Order Number</span>
-                                <h4 className="text-base font-bold text-slate-900 font-mono">#{order.id.slice(0, 10).toUpperCase()}</h4>
-                                <span className="text-xs text-slate-500">
-                                  Date: {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
-                                </span>
+                                <h4 className="text-base font-bold text-slate-900 font-mono">#{order.orderNumber || order.id.slice(0, 10).toUpperCase()}</h4>
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                  <span className="text-xs text-slate-500">
+                                    Date: {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
+                                  </span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${order.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                    {order.paymentStatus || 'Pending'}
+                                  </span>
+                                  {order.paymentId && (
+                                    <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                      Ref: {order.paymentId}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block">Total Amount</span>

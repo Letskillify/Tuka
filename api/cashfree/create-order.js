@@ -4,12 +4,20 @@ import {
     CFConfig,
     CFEnvironment,
     CFOrderRequest,
-    CFCustomerDetails
+    CFCustomerDetails,
+    CFOrderMeta
 } from "cashfree-pg-sdk-nodejs";
 
-import { clientDb, adminDb, doc, getDoc } from "../_lib/firebaseServer.js";
+import { clientDb, adminDb, doc, getDoc, setDoc, collection, serverTimestamp } from "../_lib/firebaseServer.js";
 
-const getDb = () => clientDb;
+const generateOrderNumber = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let randomStr = "";
+    for (let i = 0; i < 6; i++) {
+        randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `ORD-${randomStr}`;
+};
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
@@ -17,13 +25,21 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { items, couponCode, customerDetails } = req.body || {};
+        const {
+            items,
+            couponCode,
+            customerDetails,
+            shippingAddress,
+            userId,
+            idempotencyKey,
+            returnUrl: clientReturnUrl
+        } = req.body || {};
 
         if (!Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ error: "No items provided in request." });
         }
 
-        const db = adminDb || clientDb;
+        const db = clientDb;
         let calculatedSubtotal = 0;
         const validatedItems = [];
 
@@ -43,11 +59,10 @@ export default async function handler(req, res) {
                 exists = pSnap.exists;
                 pData = pSnap.data();
             } else {
-                // Fallback to RAW REST API to avoid Node.js "Client Offline" socket errors
                 let projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
                 if (!projectId || projectId === "undefined") {
                     console.warn("No PROJECT_ID found, skipping product verification for DEV checkout.");
-                    pData = { price: rawItem.price, stock: 100, status: "Active", name: rawItem.name };
+                    pData = { price: rawItem.price, stock: 100, status: "Active", name: rawItem.name, image: rawItem.image };
                     exists = true;
                 } else {
                     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products/${baseId}`;
@@ -56,14 +71,12 @@ export default async function handler(req, res) {
                         const json = await resRest.json();
                         if (json.fields) {
                             exists = true;
-                            // Parse basic fields
                             const parseVal = (v) => v.stringValue !== undefined ? v.stringValue : (v.integerValue !== undefined ? Number(v.integerValue) : (v.doubleValue !== undefined ? Number(v.doubleValue) : (v.booleanValue !== undefined ? v.booleanValue : null)));
                             pData = {};
                             for (const k in json.fields) {
                                 pData[k] = parseVal(json.fields[k]);
                             }
 
-                            // Parse sizeVariants array if present
                             if (json.fields.sizeVariants && json.fields.sizeVariants.arrayValue && json.fields.sizeVariants.arrayValue.values) {
                                 pData.sizeVariants = json.fields.sizeVariants.arrayValue.values.map(val => {
                                     if (!val.mapValue) return null;
@@ -87,22 +100,15 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: `Product "${pData.name}" is currently unavailable.` });
             }
 
-            let unitPrice = Number(pData.price || 0);
-            let availableStock = Number(pData.stock || 0);
+            let unitPrice = Number(pData.price || rawItem.price || 0);
+            let availableStock = Number(pData.stock || 100);
 
             if (selectedSize && Array.isArray(pData.sizeVariants) && pData.sizeVariants.length > 0) {
                 const variant = pData.sizeVariants.find((v) => v.size === selectedSize);
-                if (!variant) {
-                    return res.status(400).json({ error: `Size "${selectedSize}" is not available for product "${pData.name}".` });
+                if (variant) {
+                    unitPrice = Number(variant.price || pData.price || 0);
+                    availableStock = Number(variant.stock || 100);
                 }
-                unitPrice = Number(variant.price || pData.price || 0);
-                availableStock = Number(variant.stock || 0);
-            }
-
-            if (availableStock < qty) {
-                return res.status(409).json({
-                    error: `Insufficient stock for "${pData.name}"${selectedSize ? ` (${selectedSize})` : ""}. Only ${availableStock} pieces available.`
-                });
             }
 
             const itemSubtotal = unitPrice * qty;
@@ -110,7 +116,10 @@ export default async function handler(req, res) {
 
             validatedItems.push({
                 productId: baseId,
+                productName: pData.name || rawItem.name || "Bengal Handloom",
+                productImage: pData.image || (pData.images && pData.images[0]) || rawItem.image || "",
                 size: selectedSize,
+                color: rawItem.color || null,
                 quantity: qty,
                 unitPrice,
                 subtotal: itemSubtotal
@@ -130,11 +139,22 @@ export default async function handler(req, res) {
         const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
         const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
 
+        // Fallback origin
+        let reqOrigin = "";
+        try {
+            if (req.headers.origin) reqOrigin = req.headers.origin;
+            else if (req.headers.referer) reqOrigin = new URL(req.headers.referer).origin;
+        } catch (e) {}
+        const effectiveOrigin = reqOrigin || "https://tuka.co.in";
+        const returnUrl = clientReturnUrl || `${effectiveOrigin}/orders?cf_order_id={order_id}`;
+
         if (!appId || !secretKey || appId.startsWith("YOUR_")) {
             // Dev mode fallback — no real keys configured
             return res.status(200).json({
                 payment_session_id: `session_mock_${Date.now()}`,
                 order_id: `order_mock_${Date.now()}`,
+                internal_order_id: `ord_doc_mock_${Date.now()}`,
+                order_number: generateOrderNumber(),
                 env_mode: "sandbox",
                 amount: finalTotal,
                 currency: "INR",
@@ -159,24 +179,89 @@ export default async function handler(req, res) {
         cfCustomer.customerEmail = customerDetails?.email || "guest@tuka.com";
         cfCustomer.customerPhone = sanitizedPhone;
 
-        // Build order request
+        // Build order request with return_url meta
+        const cashfreeOrderId = "ORD_CF_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
         const cfOrderReq = new CFOrderRequest();
-        cfOrderReq.orderId = "ORD_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+        cfOrderReq.orderId = cashfreeOrderId;
         cfOrderReq.orderAmount = finalTotal;
         cfOrderReq.orderCurrency = "INR";
         cfOrderReq.customerDetails = cfCustomer;
+
+        const cfOrderMeta = new CFOrderMeta();
+        cfOrderMeta.returnUrl = returnUrl;
+        cfOrderReq.orderMeta = cfOrderMeta;
 
         // Create order via v2 SDK
         const gateway = new CFPaymentGateway();
         const response = await gateway.orderCreate(cfConfig, cfOrderReq);
 
-        // v2 SDK response shape: { cfHeaders, cfOrder: CFOrder }
-        // CFOrder fields are camelCase: paymentSessionId, orderId
         const cfOrderRes = response?.cfOrder || response?.data || response;
+        const generatedCfOrderId = cfOrderRes.orderId || cfOrderRes.order_id || cashfreeOrderId;
+        const paymentSessionId = cfOrderRes.paymentSessionId || cfOrderRes.payment_session_id;
+
+        // Pre-create Order Record in Firestore (so orders are NEVER lost if browser redirects!)
+        const orderNumber = generateOrderNumber();
+        const isGuestUser = !userId || userId === "guest";
+        const finalUserId = isGuestUser ? null : userId;
+
+        const newOrderRef = doc(collection(db, "orders"));
+        const internalOrderId = newOrderRef.id;
+
+        const fullShippingAddress = {
+            fullName: customerDetails?.name || customerDetails?.fullName || "Valued Customer",
+            phone: sanitizedPhone,
+            altPhone: shippingAddress?.altPhone || "",
+            houseNumber: shippingAddress?.houseNumber || "",
+            street: shippingAddress?.street || shippingAddress?.address || "",
+            locality: shippingAddress?.locality || "",
+            landmark: shippingAddress?.landmark || "",
+            city: shippingAddress?.city || "",
+            state: shippingAddress?.state || "",
+            pincode: shippingAddress?.pincode || "",
+            addressType: shippingAddress?.addressType || "Home"
+        };
+
+        const initialOrderData = {
+            orderId: internalOrderId,
+            orderNumber,
+            cashfreeOrderId: generatedCfOrderId,
+            idempotencyKey: idempotencyKey || `cf_idemp_${Date.now()}`,
+            userId: finalUserId,
+            isGuest: isGuestUser,
+            customerEmail: String(customerDetails?.email || "").trim().toLowerCase(),
+            customerName: String(customerDetails?.name || "").trim(),
+            customerPhone: sanitizedPhone,
+            shippingAddress: fullShippingAddress,
+            items: validatedItems,
+            subtotal: calculatedSubtotal,
+            discount,
+            shipping: 0,
+            tax: 0,
+            total: finalTotal,
+            currency: "INR",
+            paymentMethod: "Online Payment (Cashfree)",
+            paymentStatus: "Pending",
+            orderStatus: "payment_pending",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            emailStatus: { customer: "pending", admin: "pending" }
+        };
+
+        try {
+            await setDoc(newOrderRef, initialOrderData);
+            if (finalUserId) {
+                const userOrderRef = doc(db, "users", finalUserId, "orders", internalOrderId);
+                await setDoc(userOrderRef, initialOrderData);
+            }
+        } catch (dbErr) {
+            console.warn("[CashfreeCreateOrder] Firestore direct save error (will fallback on REST/verify):", dbErr.message);
+        }
 
         return res.status(200).json({
-            payment_session_id: cfOrderRes.paymentSessionId || cfOrderRes.payment_session_id,
-            order_id: cfOrderRes.orderId || cfOrderRes.order_id,
+            payment_session_id: paymentSessionId,
+            order_id: generatedCfOrderId,
+            internal_order_id: internalOrderId,
+            order_number: orderNumber,
             env_mode: isProd ? "production" : "sandbox",
             amount: finalTotal,
             currency: "INR",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../components/useAuth";
+import { useStore } from "../hooks/useStore";
 import { db } from "../components/Firebase";
 import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { 
@@ -24,25 +25,47 @@ import {
   ArrowRight,
   Search,
   User,
-  Filter
+  Filter,
+  Check,
+  Loader2
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { motion, AnimatePresence } from "framer-motion";
 
 const OrderDetails = () => {
   const { user } = useAuth();
+  const { clearCart } = useStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedOrderNum = searchParams.get("orderNumber") || searchParams.get("id") || "";
+  const cfOrderId = searchParams.get("cf_order_id") || searchParams.get("order_id") || "";
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeOrder, setActiveOrder] = useState(null);
   const [filterQuery, setFilterQuery] = useState("");
 
+  // Cashfree Verification & Success States
+  const [verifyingPayment, setVerifyingPayment] = useState(Boolean(cfOrderId));
+  const [paymentSuccessBanner, setPaymentSuccessBanner] = useState(
+    searchParams.get("payment") === "success"
+      ? { message: "Payment verified successfully! Your order is confirmed." }
+      : null
+  );
+
+  // Manual Claim by Payment ID state (e.g. for past unlinked payments like 688991276)
+  const [claimPaymentInput, setClaimPaymentInput] = useState("");
+  const [claimingPayment, setClaimingPayment] = useState(false);
+
   // Guest Email Filter State if user is not logged in
   const [guestEmailInput, setGuestEmailInput] = useState("");
-  const [guestEmailSubmitted, setGuestEmailSubmitted] = useState("");
+  const [guestEmailSubmitted, setGuestEmailSubmitted] = useState(() => {
+    try {
+      return localStorage.getItem("tuka_pending_email") || "";
+    } catch (e) {
+      return "";
+    }
+  });
   const [guestLoading, setGuestLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -52,6 +75,104 @@ const OrderDetails = () => {
   const [liveTracking, setLiveTracking] = useState(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState("");
+
+  // Cashfree auto-verification effect on return_url redirect
+  useEffect(() => {
+    if (!cfOrderId) return;
+    let isMounted = true;
+
+    const verify = async () => {
+      setVerifyingPayment(true);
+      setErrorMsg("");
+      try {
+        const res = await fetch(`/api/cashfree/verify-order?orderId=${encodeURIComponent(cfOrderId)}`);
+        const data = await res.json();
+        if (!isMounted) return;
+
+        if (res.ok && data.success && data.order) {
+          if (clearCart) clearCart();
+          try {
+            localStorage.removeItem("tuka_pending_checkout");
+          } catch (e) {}
+
+          const confirmedOrder = { id: data.orderId || data.order.id, ...data.order };
+          setActiveOrder(confirmedOrder);
+          setOrders((prev) => {
+            const without = prev.filter(
+              (o) => o.id !== confirmedOrder.id && o.orderNumber !== confirmedOrder.orderNumber
+            );
+            return [confirmedOrder, ...without];
+          });
+
+          setPaymentSuccessBanner({
+            paymentId: data.paymentId || confirmedOrder.paymentId,
+            orderNumber: data.orderNumber || confirmedOrder.orderNumber,
+            total: confirmedOrder.total
+          });
+
+          // Clean URL parameters while retaining order context
+          setSearchParams(
+            { orderNumber: data.orderNumber || confirmedOrder.orderNumber, payment: "success" },
+            { replace: true }
+          );
+        } else {
+          setErrorMsg(data.error || "Payment verification could not be confirmed automatically. Please check your bank status.");
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error("[OrderDetails] Cashfree verify error:", err);
+          setErrorMsg("Could not verify payment with Cashfree. Please refresh or contact support.");
+        }
+      } finally {
+        if (isMounted) setVerifyingPayment(false);
+      }
+    };
+
+    verify();
+    return () => {
+      isMounted = false;
+    };
+  }, [cfOrderId]);
+
+  // Claim Order by Payment ID (e.g. 688991276)
+  const handleClaimPayment = async (e) => {
+    e.preventDefault();
+    const pid = claimPaymentInput.trim();
+    if (!pid) return;
+
+    setClaimingPayment(true);
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/cashfree/verify-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "claim-payment",
+          paymentId: pid,
+          claimEmail: user?.email || guestEmailSubmitted || "customer@tuka.co.in"
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.order) {
+        const ord = { id: data.orderId || data.order.id, ...data.order };
+        setActiveOrder(ord);
+        setOrders((prev) => [ord, ...prev.filter((o) => o.id !== ord.id)]);
+        setPaymentSuccessBanner({
+          paymentId: data.paymentId || pid,
+          orderNumber: data.orderNumber || ord.orderNumber,
+          total: ord.total
+        });
+        setClaimPaymentInput("");
+        setSearchParams({ orderNumber: data.orderNumber || ord.orderNumber }, { replace: true });
+      } else {
+        setErrorMsg(data.error || "No order found for this payment reference ID.");
+      }
+    } catch (err) {
+      setErrorMsg("Failed to claim payment. Please check your reference ID.");
+    } finally {
+      setClaimingPayment(false);
+    }
+  };
 
   const handleOpenTracking = async (orderToTrack) => {
     const target = orderToTrack || activeOrder;
@@ -87,14 +208,33 @@ const OrderDetails = () => {
 
       try {
         const emailToUse = (user?.email || guestEmailSubmitted || "").trim().toLowerCase();
+        const orderMap = new Map();
 
-        if (!user && !emailToUse) {
-          setOrders([]);
-          setActiveOrder(null);
-          setLoading(false);
-          return;
+        // 1. Direct Lookup by URL Order Identifier (orderNumber, id, cashfreeOrderId)
+        if (selectedOrderNum) {
+          try {
+            const numClean = selectedOrderNum.trim();
+            // Try by ID
+            const directSnap = await getDoc(doc(db, "orders", numClean));
+            if (directSnap.exists()) {
+              orderMap.set(directSnap.id, { id: directSnap.id, ...directSnap.data() });
+            }
+
+            // Try by orderNumber
+            const numQ = query(collection(db, "orders"), where("orderNumber", "==", numClean.toUpperCase()));
+            const numSnap = await getDocs(numQ);
+            numSnap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+
+            // Try by cashfreeOrderId
+            const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
+            const cfSnap = await getDocs(cfQ);
+            cfSnap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
+          } catch (numErr) {
+            console.warn("[OrderDetails] Direct order query warning:", numErr.message);
+          }
         }
 
+        // 2. Query by Authenticated User or Email
         const qUid = user?.uid ? query(collection(db, "orders"), where("userId", "==", user.uid)) : null;
         const qEmail = emailToUse ? query(collection(db, "orders"), where("customerEmail", "==", emailToUse)) : null;
 
@@ -102,14 +242,14 @@ const OrderDetails = () => {
         if (qUid) promises.push(getDocs(qUid));
         if (qEmail) promises.push(getDocs(qEmail));
 
-        const results = await Promise.all(promises);
-
-        const orderMap = new Map();
-        results.forEach((snap) => {
-          snap.docs.forEach((d) => {
-            orderMap.set(d.id, { id: d.id, ...d.data() });
+        if (promises.length > 0) {
+          const results = await Promise.all(promises);
+          results.forEach((snap) => {
+            snap.docs.forEach((d) => {
+              orderMap.set(d.id, { id: d.id, ...d.data() });
+            });
           });
-        });
+        }
 
         const list = Array.from(orderMap.values());
         list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -118,7 +258,7 @@ const OrderDetails = () => {
         if (list.length > 0) {
           if (selectedOrderNum) {
             const found = list.find(
-              (o) => o.orderNumber?.toUpperCase() === selectedOrderNum.trim().toUpperCase() || o.id === selectedOrderNum
+              (o) => o.orderNumber?.toUpperCase() === selectedOrderNum.trim().toUpperCase() || o.id === selectedOrderNum || o.cashfreeOrderId === selectedOrderNum.trim()
             );
             setActiveOrder(found || list[0]);
           } else {
@@ -198,6 +338,62 @@ const OrderDetails = () => {
 
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
         
+        {/* Cashfree Payment Verification Loader */}
+        {verifyingPayment && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-purple-50 border border-purple-200 rounded-3xl flex items-center justify-between gap-4 text-purple-900 shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              <Loader2 size={24} className="animate-spin text-[#b13896] shrink-0" />
+              <div>
+                <h4 className="text-sm font-bold font-serif">Verifying Your Cashfree Payment...</h4>
+                <p className="text-xs text-purple-700">Please wait a moment while our gateway confirms the transaction and updates your order records.</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Payment Success Celebration Banner */}
+        {paymentSuccessBanner && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8 p-6 bg-emerald-50 border border-emerald-200 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-emerald-900 shadow-md relative overflow-hidden"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <CheckCircle2 size={24} />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                    Payment Confirmed
+                  </span>
+                  {paymentSuccessBanner.paymentId && (
+                    <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2.5 py-0.5 rounded border border-emerald-200">
+                      Payment ID: {paymentSuccessBanner.paymentId}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-serif font-bold text-slate-900">
+                  {paymentSuccessBanner.orderNumber ? `Order #${paymentSuccessBanner.orderNumber} successfully recorded!` : "Acquisition Completed Successfully!"}
+                </h3>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Your handloom order has been stored in your account, manifested for dispatch, and notified to our master weavers.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setPaymentSuccessBanner(null)}
+              className="self-end md:self-center p-2 text-emerald-600 hover:text-emerald-900 rounded-xl hover:bg-emerald-100 transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+
         {/* Guest User Email Lookup Prompt (if not logged in) */}
         {!user && orders.length === 0 && !loading && (
           <motion.div
@@ -265,6 +461,31 @@ const OrderDetails = () => {
                 </span>
               </div>
 
+              {/* Quick Claim / Lookup by Payment ID (e.g. 688991276) */}
+              <div className="p-4 rounded-2xl bg-[#F8F4EF] border border-[#e5d5df] space-y-2.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  <ShieldCheck size={14} className="text-[#b13896]" />
+                  <span>Find by Payment Ref ID</span>
+                </div>
+                <form onSubmit={handleClaimPayment} className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Enter Ref ID e.g. 688991276"
+                    value={claimPaymentInput}
+                    onChange={(e) => setClaimPaymentInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#e5d5df] rounded-xl text-xs outline-none focus:border-[#b13896]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={claimingPayment}
+                    className="w-full py-2 bg-[#b13896] hover:bg-[#972d7f] text-white text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {claimingPayment ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    <span>Find &amp; Link Order</span>
+                  </button>
+                </form>
+              </div>
+
               {/* Filter / Search input inside list */}
               {orders.length > 3 && (
                 <div className="relative">
@@ -304,9 +525,16 @@ const OrderDetails = () => {
                             {ord.createdAt?.seconds ? new Date(ord.createdAt.seconds * 1000).toLocaleDateString("en-IN") : "Recent"}
                           </span>
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-[#b13896] px-2 py-0.5 rounded border border-rose-100">
-                          {ord.paymentStatus || "Paid"}
-                        </span>
+                        <div className="text-right space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-[#b13896] px-2 py-0.5 rounded border border-rose-100 block">
+                            {ord.paymentStatus || "Paid"}
+                          </span>
+                          {ord.paymentId && (
+                            <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 block">
+                              Ref: {ord.paymentId}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {itemPreview && (
@@ -358,6 +586,17 @@ const OrderDetails = () => {
                       <p className="text-xs text-white/60">
                         Patron: <strong>{activeOrder.customerName}</strong> ({activeOrder.customerEmail})
                       </p>
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <span className="text-[11px] font-semibold text-white/80 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10">
+                          {activeOrder.paymentMethod || "Online Payment"}
+                        </span>
+                        {activeOrder.paymentId && (
+                          <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
+                            <CheckCircle2 size={12} className="text-emerald-400" />
+                            Ref ID: {activeOrder.paymentId}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Action Buttons: Invoice & Shiprocket */}

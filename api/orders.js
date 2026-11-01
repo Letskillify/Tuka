@@ -410,10 +410,10 @@ export default async function handler(req, res) {
       tax,
       total: finalTotal,
       currency: "INR",
-      paymentMethod: paymentMethod === "online" ? "Online Payment" : "Cash on Delivery (COD)",
+      paymentMethod: paymentMethod === "cashfree" ? "Online Payment (Cashfree)" : (paymentMethod === "online" ? "Online Payment" : "Cash on Delivery (COD)"),
       paymentStatus,
       orderStatus: "confirmed",
-      paymentId,
+      paymentId: paymentId ? String(paymentId) : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       emailStatus: { customer: "pending", admin: "pending" }

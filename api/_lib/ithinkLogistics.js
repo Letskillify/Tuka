@@ -33,12 +33,12 @@ loadEnvFallback();
 const getConfig = () => {
   loadEnvFallback();
   return {
-    accessToken: process.env.ITHINK_ACCESS_TOKEN || "8c449c49ce133d6deff9a083e5cccf15",
-    secretKey: process.env.ITHINK_SECRET_KEY || "80c1a0f1161c88f9643bda2310b595b4",
+    accessToken: process.env.ITHINK_ACCESS_TOKEN ,
+    secretKey: process.env.ITHINK_SECRET_KEY,
     storeId: process.env.ITHINK_STORE_ID || "34522",
-    pickupAddressId: process.env.ITHINK_PICKUP_ADDRESS_ID || "127476",
-    returnAddressId: process.env.ITHINK_RETURN_ADDRESS_ID || "127476",
-    originPincode: process.env.ITHINK_ORIGIN_PINCODE || "700001",
+    pickupAddressId: process.env.ITHINK_PICKUP_ADDRESS_ID || "127493",
+    returnAddressId: process.env.ITHINK_RETURN_ADDRESS_ID || "127493",
+    originPincode: process.env.ITHINK_ORIGIN_PINCODE || "401303",
     apiBase: "https://my.ithinklogistics.com/api_v3",
     trackBase: "https://api.ithinklogistics.com/api_v3"
   };
@@ -203,7 +203,7 @@ export async function createOrderShipment(order) {
       // Data object can be keyed by index e.g. data["1"] or data["0"] or array
       const shipmentData = result.data ? (result.data["1"] || result.data["0"] || Object.values(result.data)[0]) : null;
 
-      if (shipmentData && (shipmentData.waybill || shipmentData.status === "Success" || shipmentData.status === "success")) {
+      if (shipmentData && shipmentData.waybill && (shipmentData.status === "Success" || shipmentData.status === "success" || shipmentData.status !== "error")) {
         const waybill = shipmentData.waybill || "";
         const trackingUrl = shipmentData.tracking_url || (waybill ? `https://ithinklogistics.trackshipment.in/${waybill}` : "");
 
@@ -213,6 +213,13 @@ export async function createOrderShipment(order) {
           refnum: shipmentData.refnum || orderNumber,
           logisticName: shipmentData.logistic_name || "iThink Express Courier",
           trackingUrl,
+          raw: result
+        };
+      } else {
+        const remarkError = shipmentData?.remark || shipmentData?.message || result.html_message || result.message || "Courier assignment pending in iThink Logistics dashboard.";
+        return {
+          success: false,
+          error: remarkError,
           raw: result
         };
       }

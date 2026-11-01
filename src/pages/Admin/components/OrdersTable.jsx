@@ -93,6 +93,45 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
   const [isSavingTracking, setIsSavingTracking] = useState(false);
   const [isBookingIThink, setIsBookingIThink] = useState(false);
 
+  // Cashfree Payment Sync state
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncRefInput, setSyncRefInput] = useState("");
+  const [syncAmountInput, setSyncAmountInput] = useState("1.00");
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncCashfreePayment = async (e) => {
+    e.preventDefault();
+    const pid = syncRefInput.trim();
+    if (!pid) return;
+
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/cashfree/verify-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "claim-payment",
+          paymentId: pid,
+          claimAmount: Number(syncAmountInput) || 1,
+          customerName: "Patron (Cashfree Online)",
+          customerPhone: "9999999999"
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setToastMessage(`Payment ${pid} successfully synced! Order #${data.orderNumber} recorded.`);
+        setShowSyncModal(false);
+        setSyncRefInput("");
+      } else {
+        setToastMessage(data.error || "Failed to sync payment.");
+      }
+    } catch (err) {
+      setToastMessage("Error communicating with Cashfree verify endpoint.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Open modal with order data initialized
   const handleOpenOrderModal = (order) => {
     setSelectedOrder(order);
@@ -494,6 +533,15 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
             {/* Action Buttons */}
             <div className="flex items-center gap-2.5">
               <button
+                onClick={() => setShowSyncModal(true)}
+                className="px-4 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#b13896] border border-purple-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                title="Sync unlinked or external Cashfree payment ID"
+              >
+                <CreditCard size={14} />
+                <span>Sync Cashfree Ref</span>
+              </button>
+
+              <button
                 onClick={exportToCSV}
                 className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-sm"
                 title="Export current view to CSV"
@@ -692,9 +740,14 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                         <p className="text-xs font-bold text-slate-900">
                           ₹{Number(order.total || 0).toLocaleString()}
                         </p>
-                        <span className="inline-block mt-0.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <span className="inline-block mt-0.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                           {order.paymentMethod || "Online"}
                         </span>
+                        {order.paymentId && (
+                          <span className="inline-block mt-0.5 font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            Ref: {order.paymentId}
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -1016,6 +1069,25 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                     )}
                   </div>
 
+                  {/* Origin Warehouse Info */}
+                  <div className="p-3 bg-purple-50/70 border border-purple-200/60 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <MapPin size={14} className="text-[#b13896] shrink-0" />
+                      <span className="text-slate-700">
+                        <strong>Pickup Origin:</strong> 2KA BOUTIQUE, Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303 (Warehouse ID: 127493)
+                      </span>
+                    </div>
+                  </div>
+
+                  {(selectedOrder.iThinkNotice || selectedOrder.iThinkError) && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                      <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>iThink Notice:</strong> {selectedOrder.iThinkNotice || selectedOrder.iThinkError}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     <div>
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
@@ -1255,6 +1327,84 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                   Done
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Cashfree Payment Sync Modal ─── */}
+      <AnimatePresence>
+        {showSyncModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5"
+            >
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center gap-2 text-slate-900 font-serif font-bold text-lg">
+                  <CreditCard size={20} className="text-[#b13896]" />
+                  <span>Sync Cashfree Payment</span>
+                </div>
+                <button
+                  onClick={() => setShowSyncModal(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                If a customer completed payment on Cashfree (e.g. Ref ID: <code className="font-mono text-[#b13896] bg-purple-50 px-1 py-0.5 rounded">688991276</code>), enter the reference ID below to immediately link or record the order into the admin database.
+              </p>
+
+              <form onSubmit={handleSyncCashfreePayment} className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Cashfree Ref ID / Payment ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 688991276"
+                    value={syncRefInput}
+                    onChange={(e) => setSyncRefInput(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-[#b13896]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Amount Paid (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={syncAmountInput}
+                    onChange={(e) => setSyncAmountInput(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-[#b13896]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSyncModal(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSyncing}
+                    className="px-5 py-2.5 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
+                  >
+                    {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    <span>Sync &amp; Record</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

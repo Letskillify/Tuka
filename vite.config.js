@@ -60,6 +60,9 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/cashfree/create-order') {
             const module = await server.ssrLoadModule('/api/cashfree/create-order.js');
             return await module.default(req, res);
+          } else if (pathname === '/api/cashfree/verify-order') {
+            const module = await server.ssrLoadModule('/api/cashfree/verify-order.js');
+            return await module.default(req, res);
           } else if (pathname === '/api/cloudinary/delete') {
             const module = await server.ssrLoadModule('/api/cloudinary/delete.js');
             return await module.default(req, res);
