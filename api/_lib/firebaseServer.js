@@ -14,14 +14,45 @@ import {
     serverTimestamp
 } from "firebase/firestore";
 
+import fs from "node:fs";
+import path from "node:path";
+
+const loadEnvFallback = () => {
+    if (process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID) return;
+    try {
+        const envPath = path.resolve(process.cwd(), ".env");
+        if (fs.existsSync(envPath)) {
+            const content = fs.readFileSync(envPath, "utf8");
+            content.split(/\r?\n/).forEach((line) => {
+                const trimmed = line.trim();
+                if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
+                    const eqIdx = trimmed.indexOf("=");
+                    const key = trimmed.substring(0, eqIdx).trim();
+                    let val = trimmed.substring(eqIdx + 1).trim();
+                    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                        val = val.substring(1, val.length - 1);
+                    }
+                    if (!process.env[key]) {
+                        process.env[key] = val;
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.warn("[FirebaseServer] Warning loading .env fallback:", e.message);
+    }
+};
+
+loadEnvFallback();
+
 const firebaseConfig = {
-    apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSy_MISSING",
-    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "tuka-969fa.firebaseapp.com",
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || "tuka-969fa",
-    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "tuka-969fa.appspot.com",
-    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "12345",
-    appId: process.env.VITE_FIREBASE_APP_ID || "1:12345:web:abc",
-    measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || "G-12345"
+    apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyBbVB_qxPmeWH3JIJah-sVsVYLqRsN_jOA",
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "tukapro-306e9.firebaseapp.com",
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || "tukapro-306e9",
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "tukapro-306e9.firebasestorage.app",
+    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "879280514021",
+    appId: process.env.VITE_FIREBASE_APP_ID || "1:879280514021:web:9d58bf354bd99cdf12c50c",
+    measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || "G-Y2PKV153FD"
 };
 
 let clientDb;

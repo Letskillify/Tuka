@@ -28,7 +28,8 @@ import {
   Filter,
   Check,
   Loader2,
-  Copy
+  Copy,
+  RefreshCw
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { motion, AnimatePresence } from "framer-motion";
@@ -145,6 +146,37 @@ const OrderDetails = () => {
       isMounted = false;
     };
   }, [cfOrderId]);
+
+  // Re-verify a pending or unverified Cashfree order on demand
+  const handleReverifyOrder = async (order) => {
+    if (!order) return;
+    const targetId = order.cashfreeOrderId || order.orderId || order.id || order.orderNumber;
+    setVerifyingPayment(true);
+    setErrorMsg("");
+    try {
+      const res = await fetch(`/api/cashfree/verify-order?orderId=${encodeURIComponent(targetId)}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.order) {
+        const confirmedOrder = { id: data.orderId || data.order.id, ...data.order };
+        setActiveOrder(confirmedOrder);
+        setOrders((prev) => [
+          confirmedOrder,
+          ...prev.filter((o) => o.id !== confirmedOrder.id && o.orderNumber !== confirmedOrder.orderNumber)
+        ]);
+        setPaymentSuccessBanner({
+          paymentId: data.paymentId || confirmedOrder.paymentId,
+          orderNumber: data.orderNumber || confirmedOrder.orderNumber,
+          total: confirmedOrder.total
+        });
+      } else {
+        setErrorMsg(data.error || data.message || "Payment status is still pending verification with Cashfree. Please allow a moment and try again.");
+      }
+    } catch (err) {
+      setErrorMsg("Network error connecting to payment verification service. Please try again.");
+    } finally {
+      setVerifyingPayment(false);
+    }
+  };
 
   // Claim Order by Payment ID (e.g. 688991276)
   const handleClaimPayment = async (e) => {
@@ -645,8 +677,14 @@ const OrderDetails = () => {
                             <span className="text-[11px] font-semibold text-white/80 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10">
                               {activeOrder.paymentMethod || "Online Payment"}
                             </span>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                              Payment: {activeOrder.paymentStatus || "Paid"}
+                            <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                              String(activeOrder.paymentStatus).toLowerCase() === 'paid'
+                                ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+                                : String(activeOrder.paymentStatus).toLowerCase() === 'failed'
+                                ? 'text-rose-400 bg-rose-950/60 border-rose-500/30'
+                                : 'text-amber-400 bg-amber-950/60 border-amber-500/30'
+                            }`}>
+                              Payment: {activeOrder.paymentStatus || "Pending"}
                             </span>
                             {activePayId && (
                               <button
@@ -661,6 +699,23 @@ const OrderDetails = () => {
                                 <CheckCircle2 size={12} className="text-emerald-400" />
                                 <span>Ref: {activePayId}</span>
                                 <Copy size={10} className="text-emerald-300/70" />
+                              </button>
+                            )}
+                            {activeOrder.bankReference && (
+                              <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950/50 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                                UTR: {activeOrder.bankReference}
+                              </span>
+                            )}
+                            {String(activeOrder.paymentStatus).toLowerCase() !== "paid" && (activeOrder.cashfreeOrderId || String(activeOrder.paymentMethod || "").toLowerCase().includes("cashfree")) && (
+                              <button
+                                type="button"
+                                disabled={verifyingPayment}
+                                onClick={() => handleReverifyOrder(activeOrder)}
+                                className="text-[11px] font-bold text-amber-300 bg-amber-950/70 hover:bg-amber-900 px-3 py-0.5 rounded-full border border-amber-500/50 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                                title="Check payment status with Cashfree"
+                              >
+                                <RefreshCw size={11} className={verifyingPayment ? "animate-spin" : ""} />
+                                <span>{verifyingPayment ? "Checking Cashfree..." : "Verify Payment"}</span>
                               </button>
                             )}
                           </div>

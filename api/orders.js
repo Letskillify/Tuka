@@ -333,9 +333,12 @@ export default async function handler(req, res) {
           const gateway = new CFPaymentGateway();
 
           const response = await gateway.getPaymentsForOrder(cfConfig, cashfreeOrderId);
-          // v2 SDK response shape: { cfHeaders, cfPaymentsEntity: CFPaymentsEntity[] }
-          const paymentList = Array.isArray(response?.cfPaymentsEntity)
+          const paymentList = Array.isArray(response?.cfPaymentsEntities)
+            ? response.cfPaymentsEntities
+            : Array.isArray(response?.cfPaymentsEntity)
             ? response.cfPaymentsEntity
+            : Array.isArray(response?.data)
+            ? response.data
             : Array.isArray(response)
             ? response
             : [];

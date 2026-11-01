@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
     CFPaymentGateway,
     CFConfig,
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const cashfreeOrderId =
+        const queryOrderId =
             req.query?.orderId ||
             req.query?.cf_order_id ||
             req.query?.order_id ||
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
         const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
 
         // Special Admin / Customer Claim Action by Payment ID (e.g. for past unlinked payments)
-        if (req.body?.action === "claim-payment" || (claimPaymentId && !cashfreeOrderId)) {
+        if (req.body?.action === "claim-payment" || (claimPaymentId && !queryOrderId)) {
             const cleanPaymentId = String(claimPaymentId).trim();
             const existingQ = query(collection(db, "orders"), where("paymentId", "==", cleanPaymentId));
             const existingSnap = await getDocs(existingQ);
@@ -128,24 +129,67 @@ export default async function handler(req, res) {
             });
         }
 
-        if (!cashfreeOrderId) {
+        if (!queryOrderId) {
             return res.status(400).json({ error: "Missing required cashfreeOrderId or orderId parameter." });
         }
 
+        const rawOrderIdInput = String(queryOrderId).trim();
+
+        // ── 1. RESOLVE FIRESTORE ORDER RECORD (Support internal doc ID, cashfreeOrderId, and orderNumber) ──
+        let orderDocSnap = null;
+
+        // Search 1: by cashfreeOrderId
+        const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", rawOrderIdInput));
+        const cfSnap = await getDocs(cfQ);
+        if (!cfSnap.empty) {
+            orderDocSnap = cfSnap.docs[0];
+        } else {
+            // Search 2: by direct document ID
+            const directSnap = await getDoc(doc(db, "orders", rawOrderIdInput));
+            if (directSnap.exists()) {
+                orderDocSnap = directSnap;
+            } else {
+                // Search 3: by human-readable orderNumber (e.g. ORD-YUWLCF)
+                const numQ = query(collection(db, "orders"), where("orderNumber", "==", rawOrderIdInput.toUpperCase()));
+                const numSnap = await getDocs(numQ);
+                if (!numSnap.empty) {
+                    orderDocSnap = numSnap.docs[0];
+                }
+            }
+        }
+
+        const existingOrderData = orderDocSnap ? { id: orderDocSnap.id, ...orderDocSnap.data() } : null;
+        const effectiveCfOrderId = existingOrderData?.cashfreeOrderId || rawOrderIdInput;
+
+        console.log(`[VerifyOrder] Verifying Cashfree payment for ID: "${rawOrderIdInput}" -> Cashfree Order ID: "${effectiveCfOrderId}"`);
+
+        // ── 2. AUTHORITATIVE SERVER-SIDE VERIFICATION WITH CASHFREE API ──
         let paymentList = [];
         let successfulPayment = null;
         let cfPaymentId = null;
+        let bankReference = null;
+        let paymentGroup = null;
+        let paymentAmount = null;
+        let paymentCurrency = "INR";
+        let paymentTime = null;
+        let paymentMessage = null;
+        let cfOrderDetails = null;
 
-        // Authoritative server-side verification with Cashfree API
         if (appId && secretKey && !appId.startsWith("YOUR_")) {
             const cfEnvironment = isProd ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
             const cfConfig = new CFConfig(cfEnvironment, "2023-08-01", appId, secretKey);
             const gateway = new CFPaymentGateway();
 
+            // A. Query payments for this order from Cashfree
             try {
-                const response = await gateway.getPaymentsForOrder(cfConfig, cashfreeOrderId);
-                paymentList = Array.isArray(response?.cfPaymentsEntity)
+                const response = await gateway.getPaymentsForOrder(cfConfig, effectiveCfOrderId);
+                // Note: v2 SDK returns cfPaymentsEntities (plural)
+                paymentList = Array.isArray(response?.cfPaymentsEntities)
+                    ? response.cfPaymentsEntities
+                    : Array.isArray(response?.cfPaymentsEntity)
                     ? response.cfPaymentsEntity
+                    : Array.isArray(response?.data)
+                    ? response.data
                     : Array.isArray(response)
                     ? response
                     : [];
@@ -155,46 +199,90 @@ export default async function handler(req, res) {
                 );
 
                 if (successfulPayment) {
-                    cfPaymentId = successfulPayment.cfPaymentId || successfulPayment.cf_payment_id;
+                    cfPaymentId = String(successfulPayment.cfPaymentId || successfulPayment.cf_payment_id || "");
+                    bankReference = String(successfulPayment.bankReference || successfulPayment.bank_reference || "");
+                    paymentGroup = String(successfulPayment.paymentGroup || successfulPayment.payment_group || "");
+                    paymentAmount = Number(successfulPayment.paymentAmount || successfulPayment.order_amount || 0);
+                    paymentCurrency = String(successfulPayment.paymentCurrency || successfulPayment.currency || "INR");
+                    paymentTime = successfulPayment.paymentTime || successfulPayment.payment_completion_time || new Date().toISOString();
+                    paymentMessage = successfulPayment.paymentMessage || successfulPayment.payment_message || "Transaction Success";
                 }
             } catch (gatewayErr) {
-                console.error("[VerifyOrder] Cashfree Gateway verification error:", gatewayErr?.response?.data || gatewayErr.message);
+                console.warn("[VerifyOrder] Cashfree getPaymentsForOrder warning:", gatewayErr?.response?.data || gatewayErr.message);
+            }
+
+            // B. Dual Verification: Query order state directly from Cashfree
+            try {
+                const orderRes = await gateway.getOrder(cfConfig, effectiveCfOrderId);
+                cfOrderDetails = orderRes?.cfOrder || orderRes?.data || orderRes;
+                const orderStatusGateway = String(cfOrderDetails?.orderStatus || cfOrderDetails?.order_status || "").toUpperCase();
+
+                if (orderStatusGateway === "PAID" && !successfulPayment) {
+                    // Gateway confirms order is PAID even if payments array was still capturing
+                    successfulPayment = {
+                        cfPaymentId: cfOrderDetails?.cfOrderId || `CF_ORD_${effectiveCfOrderId}`,
+                        paymentStatus: "SUCCESS",
+                        paymentAmount: Number(cfOrderDetails?.orderAmount || existingOrderData?.total || 1),
+                        paymentCurrency: cfOrderDetails?.orderCurrency || "INR",
+                        paymentTime: new Date().toISOString()
+                    };
+                    cfPaymentId = String(successfulPayment.cfPaymentId);
+                    paymentAmount = successfulPayment.paymentAmount;
+                    paymentCurrency = successfulPayment.paymentCurrency;
+                    paymentTime = successfulPayment.paymentTime;
+                }
+            } catch (orderErr) {
+                console.warn("[VerifyOrder] Cashfree getOrder warning:", orderErr?.response?.data || orderErr.message);
             }
         } else {
-            // Mock dev mode
+            // Mock dev mode fallback
             successfulPayment = { paymentStatus: "SUCCESS", cfPaymentId: `CF_MOCK_${Date.now()}` };
             cfPaymentId = successfulPayment.cfPaymentId;
+            paymentAmount = existingOrderData?.total || 1;
+            paymentTime = new Date().toISOString();
         }
 
+        // ── 3. HANDLE UNVERIFIED / PENDING / FAILED PAYMENTS ──
         if (!successfulPayment) {
+            // SAFEGUARD: Never overwrite a previously verified successful payment!
+            if (existingOrderData && existingOrderData.paymentStatus === "Paid") {
+                console.log(`[VerifyOrder] Order ${existingOrderData.id} was already verified as Paid. Refusing to downgrade status.`);
+                return res.status(200).json({
+                    success: true,
+                    verified: true,
+                    alreadyPaid: true,
+                    orderId: existingOrderData.id,
+                    orderNumber: existingOrderData.orderNumber,
+                    paymentId: existingOrderData.paymentId,
+                    order: existingOrderData
+                });
+            }
+
             const hasFailed = paymentList.some((p) =>
                 ["FAILED", "USER_DROPPED", "CANCELLED"].includes(String(p.paymentStatus || p.payment_status).toUpperCase())
             );
-            return res.status(400).json({
+
+            if (hasFailed && existingOrderData && existingOrderData.paymentStatus !== "Paid") {
+                await updateDoc(doc(db, "orders", existingOrderData.id), {
+                    paymentStatus: "Failed",
+                    orderStatus: "payment_failed",
+                    updatedAt: serverTimestamp()
+                });
+            }
+
+            return res.status(200).json({
                 success: false,
+                verified: false,
                 paymentStatus: hasFailed ? "FAILED" : "PENDING",
                 error: hasFailed
                     ? "Payment was unsuccessful or cancelled by user."
-                    : "Payment status is pending verification."
+                    : "Payment status is pending verification on Cashfree.",
+                order: existingOrderData
             });
         }
 
-        const finalPaymentId = String(cfPaymentId || claimPaymentId || cashfreeOrderId);
-
-        // Find Order in Firestore by cashfreeOrderId
-        let orderDocSnap = null;
-        const q = query(collection(db, "orders"), where("cashfreeOrderId", "==", cashfreeOrderId));
-        const snap = await getDocs(q);
-
-        if (!snap.empty) {
-            orderDocSnap = snap.docs[0];
-        } else {
-            // Direct document ID fallback
-            const directSnap = await getDoc(doc(db, "orders", cashfreeOrderId));
-            if (directSnap.exists()) {
-                orderDocSnap = directSnap;
-            }
-        }
+        // ── 4. PAYMENT IS CONFIRMED SUCCESSFUL ──
+        const finalPaymentId = String(cfPaymentId || claimPaymentId || effectiveCfOrderId);
 
         if (orderDocSnap) {
             const orderDocId = orderDocSnap.id;
@@ -205,7 +293,7 @@ export default async function handler(req, res) {
             const isEmailSent = orderData.emailStatus?.customer === "sent";
 
             // IDEMPOTENCY GUARD:
-            // If the order has already been verified, paid, inventory deducted, and email sent, return cleanly
+            // If the order has already been verified, paid, inventory deducted, and email sent, return cleanly!
             if (isAlreadyPaid && isInventoryDeducted && isEmailSent) {
                 console.log(`[VerifyOrder] Order ${orderDocId} is already fully confirmed, stock deducted, and email sent.`);
                 return res.status(200).json({
@@ -215,37 +303,48 @@ export default async function handler(req, res) {
                     orderId: orderDocId,
                     orderNumber: orderData.orderNumber,
                     paymentId: orderData.paymentId || finalPaymentId,
+                    bankReference: orderData.bankReference || bankReference,
                     order: orderData
                 });
             }
 
-            // 1. Update Order Status to PAID & Confirmed (if not already)
-            const updates = {};
-            if (!isAlreadyPaid) {
-                updates.paymentStatus = "Paid";
-                updates.orderStatus = "confirmed";
-                updates.paymentId = finalPaymentId;
-                updates.paymentMethod = "Online Payment (Cashfree)";
-                updates.paymentDetails = {
-                    cashfreeOrderId,
+            // A. Update Order Status to PAID & Confirmed in Firestore
+            const updates = {
+                paymentStatus: "Paid",
+                orderStatus: "confirmed",
+                paymentId: finalPaymentId,
+                cfPaymentId: finalPaymentId,
+                bankReference: bankReference || orderData.bankReference || null,
+                paymentMethod: "Online Payment (Cashfree)",
+                paymentDetails: {
+                    gateway: "Cashfree",
+                    cashfreeOrderId: effectiveCfOrderId,
+                    cfOrderId: cfOrderDetails?.cfOrderId || null,
                     cfPaymentId: finalPaymentId,
+                    paymentId: finalPaymentId,
+                    bankReference: bankReference || null,
+                    paymentGroup: paymentGroup || null,
+                    paymentAmount: paymentAmount || orderData.total,
+                    paymentCurrency: paymentCurrency || "INR",
                     paymentStatus: "SUCCESS",
-                    paymentTime: successfulPayment?.paymentCompletionTime || new Date().toISOString()
-                };
-                updates.updatedAt = serverTimestamp();
+                    paymentTime: paymentTime || new Date().toISOString(),
+                    paymentMessage: paymentMessage || "Transaction Success",
+                    verifiedAt: new Date().toISOString()
+                },
+                updatedAt: serverTimestamp()
+            };
 
-                await updateDoc(doc(db, "orders", orderDocId), updates);
+            await updateDoc(doc(db, "orders", orderDocId), updates);
 
-                if (orderData.userId && orderData.userId !== "guest") {
-                    try {
-                        await updateDoc(doc(db, "users", orderData.userId, "orders", orderDocId), updates);
-                    } catch (e) {}
-                }
+            if (orderData.userId && orderData.userId !== "guest") {
+                try {
+                    await updateDoc(doc(db, "users", orderData.userId, "orders", orderDocId), updates);
+                } catch (e) {}
             }
 
             const currentOrderSnapshot = { ...orderData, ...updates };
 
-            // 2. Concurrency-Safe Stock Deduction (Bug 2 Fix)
+            // B. Concurrency-Safe Stock Deduction (Atomic Firestore Transaction)
             if (!isInventoryDeducted) {
                 try {
                     console.log(`[VerifyOrder] Concurrency-safe stock deduction for order ${orderDocId}...`);
@@ -256,7 +355,7 @@ export default async function handler(req, res) {
                 }
             }
 
-            // 3. Dispatch Order Confirmation Email (Bug 1 Fix - Awaited & Idempotent)
+            // C. Dispatch Order Confirmation Email (Awaited & Idempotent)
             let emailStatus = currentOrderSnapshot.emailStatus || { customer: "pending", admin: "pending" };
             if (emailStatus.customer !== "sent") {
                 try {
@@ -285,6 +384,7 @@ export default async function handler(req, res) {
                         status: emailStatus,
                         gateway: "Cashfree",
                         paymentId: finalPaymentId,
+                        bankReference: bankReference || null,
                         sentAt: serverTimestamp(),
                         type: "Cashfree Order Confirmation"
                     });
@@ -294,7 +394,7 @@ export default async function handler(req, res) {
                 }
             }
 
-            // 4. Dispatch Courier Manifest (iThink Logistics)
+            // D. Dispatch Courier Manifest (iThink Logistics)
             if (!currentOrderSnapshot.awbCode) {
                 try {
                     const shipRes = await createOrderShipment(currentOrderSnapshot);
@@ -318,15 +418,17 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 success: true,
                 verified: true,
+                paymentStatus: "PAID",
                 orderId: orderDocId,
                 orderNumber: orderData.orderNumber,
                 paymentId: finalPaymentId,
+                bankReference: bankReference || null,
                 order: currentOrderSnapshot
             });
         }
 
-        // ── 5. Orphan Order Recovery (if order record was not found initially) ──
-        console.warn(`[VerifyOrder] Order doc not found for cashfreeOrderId: ${cashfreeOrderId}. Initiating orphan order recovery...`);
+        // ── 5. ORPHAN ORDER RECOVERY (if order record was not found initially) ──
+        console.warn(`[VerifyOrder] Order doc not found for cashfreeOrderId: ${effectiveCfOrderId}. Initiating orphan order recovery...`);
         const newOrderRef = doc(collection(db, "orders"));
         const orderId = newOrderRef.id;
         const orderNumber = generateOrderNumber();
@@ -334,29 +436,40 @@ export default async function handler(req, res) {
         const recoveredOrder = {
             orderId,
             orderNumber,
-            cashfreeOrderId,
+            cashfreeOrderId: effectiveCfOrderId,
             paymentId: finalPaymentId,
+            cfPaymentId: finalPaymentId,
+            bankReference: bankReference || null,
             paymentStatus: "Paid",
             orderStatus: "confirmed",
             paymentMethod: "Online Payment (Cashfree)",
             paymentDetails: {
-                cashfreeOrderId,
+                gateway: "Cashfree",
+                cashfreeOrderId: effectiveCfOrderId,
+                cfOrderId: cfOrderDetails?.cfOrderId || null,
                 cfPaymentId: finalPaymentId,
+                paymentId: finalPaymentId,
+                bankReference: bankReference || null,
+                paymentGroup: paymentGroup || null,
+                paymentAmount: paymentAmount || 1,
+                paymentCurrency: paymentCurrency || "INR",
                 paymentStatus: "SUCCESS",
+                paymentTime: paymentTime || new Date().toISOString(),
+                paymentMessage: paymentMessage || "Transaction Success",
                 verifiedAt: new Date().toISOString()
             },
-            total: successfulPayment?.paymentAmount || 1,
-            subtotal: successfulPayment?.paymentAmount || 1,
+            total: paymentAmount || 1,
+            subtotal: paymentAmount || 1,
             discount: 0,
             shipping: 0,
             tax: 0,
-            currency: "INR",
-            customerName: "Valued Customer",
-            customerEmail: claimCustomerEmail.toLowerCase().trim(),
-            customerPhone: "9999999999",
+            currency: paymentCurrency || "INR",
+            customerName: cfOrderDetails?.customerDetails?.customerName || "Valued Customer",
+            customerEmail: cfOrderDetails?.customerDetails?.customerEmail || claimCustomerEmail.toLowerCase().trim(),
+            customerPhone: cfOrderDetails?.customerDetails?.customerPhone || "9999999999",
             shippingAddress: {
-                fullName: "Valued Customer",
-                phone: "9999999999",
+                fullName: cfOrderDetails?.customerDetails?.customerName || "Valued Customer",
+                phone: cfOrderDetails?.customerDetails?.customerPhone || "9999999999",
                 street: "Recovered Cashfree Order",
                 city: "Kolkata",
                 state: "West Bengal",
@@ -369,8 +482,8 @@ export default async function handler(req, res) {
                     productName: "Bengal Handloom Drape",
                     productImage: "https://images.unsplash.com/photo-1610030470298-40e1eaccf77d?auto=format&fit=crop&q=80&w=300",
                     quantity: 1,
-                    unitPrice: successfulPayment?.paymentAmount || 1,
-                    subtotal: successfulPayment?.paymentAmount || 1
+                    unitPrice: paymentAmount || 1,
+                    subtotal: paymentAmount || 1
                 }
             ],
             createdAt: serverTimestamp(),
@@ -407,6 +520,7 @@ export default async function handler(req, res) {
                 status: emailStatus,
                 gateway: "Cashfree (Recovered)",
                 paymentId: finalPaymentId,
+                bankReference: bankReference || null,
                 sentAt: serverTimestamp(),
                 type: "Cashfree Order Confirmation"
             });
@@ -418,14 +532,16 @@ export default async function handler(req, res) {
             success: true,
             verified: true,
             recovered: true,
+            paymentStatus: "PAID",
             orderId,
             orderNumber,
             paymentId: finalPaymentId,
+            bankReference: bankReference || null,
             order: recoveredOrder
         });
 
     } catch (err) {
-        console.error("[VerifyOrder] Error:", err?.response?.data || err.message || err);
+        console.error("[VerifyOrder] Critical verification error:", err?.response?.data || err.message || err);
         return res.status(500).json({ error: err?.response?.data?.message || err.message || "Failed to verify order." });
     }
 }

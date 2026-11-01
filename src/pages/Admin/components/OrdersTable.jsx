@@ -28,7 +28,8 @@ import {
   ArrowUpDown,
   Check,
   Loader2,
-  Copy
+  Copy,
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../../components/Firebase";
@@ -242,6 +243,27 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
     } catch (err) {
       console.error("Error updating payment status:", err);
       alert("Failed to update payment status.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // ─── Re-verify Cashfree Payment Live with Cashfree API ───────────────────
+  const handleAdminVerifyCashfree = async (order) => {
+    if (!order) return;
+    const targetId = order.cashfreeOrderId || order.id || order.orderNumber;
+    setUpdatingId(order.id);
+    try {
+      showToast(`Querying Cashfree for order ${order.orderNumber || targetId}...`);
+      const res = await fetch(`/api/cashfree/verify-order?orderId=${encodeURIComponent(targetId)}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.paymentStatus === "PAID") {
+        showToast(`Payment verified as PAID! (Ref: ${data.paymentId || targetId})`);
+      } else {
+        showToast(data.error || data.message || "Payment status is still Pending on Cashfree.");
+      }
+    } catch (err) {
+      showToast("Error communicating with Cashfree verify endpoint.");
     } finally {
       setUpdatingId(null);
     }
@@ -764,6 +786,11 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                             </button>
                           );
                         })()}
+                        {order.bankReference && (
+                          <div className="font-mono text-[9px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 mt-0.5 inline-block">
+                            UTR: {order.bankReference}
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -782,6 +809,18 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                           <option value="Refunded">Refunded</option>
                         </select>
                         <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                        {String(order.paymentStatus).toLowerCase() !== "paid" && order.cashfreeOrderId && (
+                          <button
+                            type="button"
+                            onClick={() => handleAdminVerifyCashfree(order)}
+                            disabled={isUpdating}
+                            className="ml-1.5 p-1 text-[10px] text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-md border border-amber-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Verify live payment status with Cashfree"
+                          >
+                            <RefreshCw size={11} className={isUpdating ? "animate-spin" : ""} />
+                            <span>Verify</span>
+                          </button>
+                        )}
                       </div>
                     </td>
 

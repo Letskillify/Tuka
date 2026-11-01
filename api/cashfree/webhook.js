@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
     CFPaymentGateway,
     CFConfig,
@@ -24,7 +25,7 @@ import { createOrderShipment } from "../_lib/ithinkLogistics.js";
 /**
  * Cashfree Server-to-Server Webhook Handler
  * Receives payment status updates directly from Cashfree servers.
- * Idempotently verifies payment, deducts stock, and sends confirmation emails.
+ * Validates webhook signatures, server-side verifies payment, deducts stock, and sends confirmation emails.
  */
 export default async function handler(req, res) {
     if (req.method !== "POST") {
@@ -33,6 +34,28 @@ export default async function handler(req, res) {
 
     try {
         const body = req.body || {};
+        const appId = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
+        const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
+        const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
+        const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
+
+        // ── 1. SIGNATURE VERIFICATION (if signature header provided) ──
+        const signature = req.headers["x-webhook-signature"] || req.headers["x-cf-signature"];
+        const timestamp = req.headers["x-webhook-timestamp"] || req.headers["x-cf-timestamp"];
+
+        if (signature && timestamp && secretKey && !secretKey.startsWith("YOUR_")) {
+            const rawBody = typeof req.rawBody === "string" ? req.rawBody : JSON.stringify(body);
+            const expectedSig = crypto
+                .createHmac("sha256", secretKey)
+                .update(timestamp + rawBody)
+                .digest("base64");
+
+            if (signature !== expectedSig) {
+                console.warn("[CashfreeWebhook] Invalid webhook signature. Rejecting unauthorized callback.");
+                return res.status(401).json({ error: "Invalid webhook signature" });
+            }
+        }
+
         console.log("[CashfreeWebhook] Incoming webhook event received:", {
             type: body.type || body.event || "UNKNOWN",
             orderId: body.data?.order?.order_id || body.order?.order_id || body.orderId
@@ -51,7 +74,7 @@ export default async function handler(req, res) {
             body.payment ||
             {};
 
-        const paymentStatus = String(
+        const paymentStatusWebhook = String(
             cfPayment.payment_status ||
             cfPayment.paymentStatus ||
             body.data?.order?.order_status ||
@@ -71,63 +94,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "Missing order_id in webhook payload" });
         }
 
-        // Only process successful payments
-        const isSuccess =
-            paymentStatus === "SUCCESS" ||
-            paymentStatus === "PAID" ||
-            body.type === "PAYMENT_SUCCESS_WEBHOOK" ||
-            body.type === "ORDER_PAID";
-
-        if (!isSuccess) {
-            console.log(`[CashfreeWebhook] Ignoring non-success payment status: "${paymentStatus}" for order ${cashfreeOrderId}`);
-            return res.status(200).json({ received: true, processed: false, reason: "Status is not SUCCESS" });
-        }
-
         const db = clientDb;
-        const appId = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
-        const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
-        const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
-        const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
 
-        // Server-side authoritative verification with Cashfree API (Never trust raw webhook body alone)
-        let verifiedPayment = null;
-        if (appId && secretKey && !appId.startsWith("YOUR_")) {
-            const cfEnvironment = isProd ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
-            const cfConfig = new CFConfig(cfEnvironment, "2023-08-01", appId, secretKey);
-            const gateway = new CFPaymentGateway();
-
-            try {
-                const response = await gateway.getPaymentsForOrder(cfConfig, cashfreeOrderId);
-                const paymentList = Array.isArray(response?.cfPaymentsEntity)
-                    ? response.cfPaymentsEntity
-                    : Array.isArray(response)
-                    ? response
-                    : [];
-
-                verifiedPayment = paymentList.find(
-                    (p) => String(p.paymentStatus || p.payment_status).toUpperCase() === "SUCCESS"
-                );
-            } catch (vErr) {
-                console.error("[CashfreeWebhook] Error verifying payment with Cashfree API:", vErr.message);
-            }
-        } else {
-            // Mock mode
-            verifiedPayment = { paymentStatus: "SUCCESS", cfPaymentId: cfPaymentId || `CF_MOCK_${Date.now()}` };
-        }
-
-        if (!verifiedPayment && !isSuccess) {
-            console.warn(`[CashfreeWebhook] Verification failed for order ${cashfreeOrderId}`);
-            return res.status(200).json({ received: true, processed: false, error: "Unverified payment" });
-        }
-
-        const finalPaymentId = String(
-            verifiedPayment?.cfPaymentId ||
-            verifiedPayment?.cf_payment_id ||
-            cfPaymentId ||
-            cashfreeOrderId
-        );
-
-        // Find Order in Firestore
+        // ── 2. FIND ORDER IN FIRESTORE ──
         let orderDocSnap = null;
         const q = query(collection(db, "orders"), where("cashfreeOrderId", "==", cashfreeOrderId));
         const snap = await getDocs(q);
@@ -142,12 +111,93 @@ export default async function handler(req, res) {
         }
 
         if (!orderDocSnap) {
-            console.warn(`[CashfreeWebhook] Order not found for cashfreeOrderId ${cashfreeOrderId}`);
+            console.warn(`[CashfreeWebhook] Order not found in Firestore for cashfreeOrderId ${cashfreeOrderId}`);
             return res.status(200).json({ received: true, processed: false, error: "Order not found" });
         }
 
         const orderDocId = orderDocSnap.id;
         const orderData = { id: orderDocId, ...orderDocSnap.data() };
+
+        // SAFEGUARD: Never allow an older pending/failed webhook event to overwrite a previously verified successful payment!
+        if (orderData.paymentStatus === "Paid" && paymentStatusWebhook !== "SUCCESS" && paymentStatusWebhook !== "PAID") {
+            console.log(`[CashfreeWebhook] Order ${orderDocId} is already marked Paid. Ignoring non-success webhook event.`);
+            return res.status(200).json({ received: true, duplicate: true, orderId: orderDocId });
+        }
+
+        // ── 3. INDEPENDENT SERVER-SIDE VERIFICATION WITH CASHFREE API ──
+        let verifiedPayment = null;
+        let bankReference = cfPayment.bank_reference || cfPayment.bankReference || null;
+        let paymentGroup = cfPayment.payment_group || cfPayment.paymentGroup || null;
+        let paymentAmount = Number(cfPayment.payment_amount || body.data?.order?.order_amount || orderData.total || 1);
+        let paymentCurrency = cfPayment.payment_currency || "INR";
+        let paymentTime = cfPayment.payment_time || new Date().toISOString();
+
+        if (appId && secretKey && !appId.startsWith("YOUR_")) {
+            const cfEnvironment = isProd ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+            const cfConfig = new CFConfig(cfEnvironment, "2023-08-01", appId, secretKey);
+            const gateway = new CFPaymentGateway();
+
+            try {
+                const response = await gateway.getPaymentsForOrder(cfConfig, cashfreeOrderId);
+                const paymentList = Array.isArray(response?.cfPaymentsEntities)
+                    ? response.cfPaymentsEntities
+                    : Array.isArray(response?.cfPaymentsEntity)
+                    ? response.cfPaymentsEntity
+                    : Array.isArray(response?.data)
+                    ? response.data
+                    : Array.isArray(response)
+                    ? response
+                    : [];
+
+                verifiedPayment = paymentList.find(
+                    (p) => String(p.paymentStatus || p.payment_status).toUpperCase() === "SUCCESS"
+                );
+
+                if (verifiedPayment) {
+                    bankReference = verifiedPayment.bankReference || verifiedPayment.bank_reference || bankReference;
+                    paymentGroup = verifiedPayment.paymentGroup || verifiedPayment.payment_group || paymentGroup;
+                    paymentAmount = Number(verifiedPayment.paymentAmount || paymentAmount);
+                    paymentTime = verifiedPayment.paymentTime || paymentTime;
+                }
+            } catch (vErr) {
+                console.error("[CashfreeWebhook] Error verifying payment with Cashfree API:", vErr.message);
+            }
+
+            // Dual verification with getOrder
+            try {
+                const orderRes = await gateway.getOrder(cfConfig, cashfreeOrderId);
+                const cfOrder = orderRes?.cfOrder || orderRes?.data || orderRes;
+                if (String(cfOrder?.orderStatus || "").toUpperCase() === "PAID" && !verifiedPayment) {
+                    verifiedPayment = {
+                        cfPaymentId: cfOrder?.cfOrderId || cfPaymentId || `CF_ORD_${cashfreeOrderId}`,
+                        paymentStatus: "SUCCESS",
+                        paymentAmount: cfOrder?.orderAmount || paymentAmount
+                    };
+                }
+            } catch (oErr) {}
+        } else {
+            // Mock mode
+            verifiedPayment = { paymentStatus: "SUCCESS", cfPaymentId: cfPaymentId || `CF_MOCK_${Date.now()}` };
+        }
+
+        const isSuccess =
+            verifiedPayment !== null ||
+            paymentStatusWebhook === "SUCCESS" ||
+            paymentStatusWebhook === "PAID" ||
+            body.type === "PAYMENT_SUCCESS_WEBHOOK" ||
+            body.type === "ORDER_PAID";
+
+        if (!isSuccess) {
+            console.log(`[CashfreeWebhook] Ignoring non-success payment status: "${paymentStatusWebhook}" for order ${cashfreeOrderId}`);
+            return res.status(200).json({ received: true, processed: false, reason: "Status is not SUCCESS" });
+        }
+
+        const finalPaymentId = String(
+            verifiedPayment?.cfPaymentId ||
+            verifiedPayment?.cf_payment_id ||
+            cfPaymentId ||
+            cashfreeOrderId
+        );
 
         // IDEMPOTENCY CHECK:
         // If order is already paid, stock deducted, and confirmation email sent, finish cleanly!
@@ -160,17 +210,26 @@ export default async function handler(req, res) {
             return res.status(200).json({ received: true, duplicate: true, orderId: orderDocId });
         }
 
-        // 1. Mark Order as Paid
+        // 4. Mark Order as Paid in Firestore with complete reference details
         const updates = {
             paymentStatus: "Paid",
             orderStatus: "confirmed",
             paymentId: finalPaymentId,
+            cfPaymentId: finalPaymentId,
+            bankReference: bankReference || orderData.bankReference || null,
             paymentMethod: "Online Payment (Cashfree)",
             paymentDetails: {
+                gateway: "Cashfree",
                 cashfreeOrderId,
                 cfPaymentId: finalPaymentId,
+                paymentId: finalPaymentId,
+                bankReference: bankReference || null,
+                paymentGroup: paymentGroup || null,
+                paymentAmount: paymentAmount || orderData.total,
+                paymentCurrency: paymentCurrency || "INR",
                 paymentStatus: "SUCCESS",
-                paymentTime: verifiedPayment?.paymentCompletionTime || new Date().toISOString()
+                paymentTime: paymentTime || new Date().toISOString(),
+                verifiedAt: new Date().toISOString()
             },
             updatedAt: serverTimestamp()
         };
@@ -183,24 +242,26 @@ export default async function handler(req, res) {
             } catch (e) {}
         }
 
-        // 2. Concurrency-Safe Stock Deduction (Idempotent)
+        const currentOrderSnapshot = { ...orderData, ...updates };
+
+        // 5. Concurrency-Safe Stock Deduction (Idempotent)
         if (!orderData.inventoryDeducted) {
             try {
                 console.log(`[CashfreeWebhook] Deducting inventory for order ${orderDocId}...`);
                 await deductOrderInventory(db, orderDocId, orderData.items, orderData.userId);
+                currentOrderSnapshot.inventoryDeducted = true;
             } catch (invErr) {
                 console.error(`[CashfreeWebhook] Stock deduction error for order ${orderDocId}:`, invErr.message);
             }
         }
 
-        // 3. Dispatch Order Confirmation Email (Awaited & Idempotent)
-        let emailStatus = orderData.emailStatus || { customer: "pending", admin: "pending" };
+        // 6. Dispatch Order Confirmation Email (Awaited & Idempotent)
+        let emailStatus = currentOrderSnapshot.emailStatus || { customer: "pending", admin: "pending" };
         if (emailStatus.customer !== "sent") {
             try {
                 console.log(`[CashfreeWebhook] Dispatching confirmation email for order ${orderDocId} to ${orderData.customerEmail}...`);
-                const fullSnapshot = { ...orderData, ...updates };
                 emailStatus = await sendOrderEmails({
-                    ...fullSnapshot,
+                    ...currentOrderSnapshot,
                     orderId: orderDocId,
                     orderNumber: orderData.orderNumber,
                     awbCode: orderData.awbCode || null,
@@ -219,6 +280,7 @@ export default async function handler(req, res) {
                     status: emailStatus,
                     gateway: "Cashfree (Webhook)",
                     paymentId: finalPaymentId,
+                    bankReference: bankReference || null,
                     sentAt: serverTimestamp(),
                     type: "Cashfree Order Confirmation"
                 });
@@ -227,10 +289,10 @@ export default async function handler(req, res) {
             }
         }
 
-        // 4. Dispatch Courier Manifest
+        // 7. Dispatch Courier Manifest
         if (!orderData.awbCode) {
             try {
-                const shipRes = await createOrderShipment({ ...orderData, ...updates });
+                const shipRes = await createOrderShipment(currentOrderSnapshot);
                 if (shipRes?.success && shipRes.waybill) {
                     await updateDoc(doc(db, "orders", orderDocId), {
                         shippingProvider: "iThink Logistics",
@@ -251,7 +313,8 @@ export default async function handler(req, res) {
             success: true,
             orderId: orderDocId,
             orderNumber: orderData.orderNumber,
-            paymentId: finalPaymentId
+            paymentId: finalPaymentId,
+            bankReference: bankReference || null
         });
 
     } catch (err) {

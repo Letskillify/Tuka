@@ -752,6 +752,19 @@ const Account = () => {
                                       Ref: {payId}
                                     </span>
                                   )}
+                                  {order.bankReference && (
+                                    <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                      UTR: {order.bankReference}
+                                    </span>
+                                  )}
+                                  {String(order.paymentStatus).toLowerCase() !== "paid" && order.cashfreeOrderId && (
+                                    <Link
+                                      to={`/orders?cf_order_id=${encodeURIComponent(order.cashfreeOrderId)}`}
+                                      className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-300 inline-flex items-center gap-1 transition-colors"
+                                    >
+                                      Verify Status &rarr;
+                                    </Link>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">
