@@ -212,7 +212,7 @@ const Footer = () => {
           {/* ── Bottom Bar (Copyright & Policy Links) ───────────────────────── */}
           <div className="pt-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 font-sans">
             <p className="text-center sm:text-left font-normal text-xs sm:text-sm">
-              © {currentYear} House of Tuka | Legal Entity: <span className="font-semibold text-slate-800">DIPANWITA PATRA</span> | Phone: <a href="tel:+919831133937" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">+91 9831133937</a> | Email: <a href="mailto:tukasupport@gmail.com" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">tukasupport@gmail.com</a>
+              © {currentYear} House of Tuka | Designed by <a href="https://letskillify.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">Letskillify</a>
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 font-medium">
