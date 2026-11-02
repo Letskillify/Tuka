@@ -3,7 +3,7 @@ import { useLocation, Link, useNavigate } from "react-router-dom";
 import { db } from "../components/Firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../components/useAuth";
-import { CheckCircle, Package, ArrowRight, ShieldCheck, Mail, MapPin, Truck, ShoppingBag, Clock, Copy, Check, Lock, ExternalLink } from "lucide-react";
+import { CheckCircle, Package, ArrowRight, ShieldCheck, ShieldAlert, Mail, MapPin, Truck, ShoppingBag, Clock, Copy, Check, Lock, ExternalLink, LogIn, User } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { motion } from "framer-motion";
 
@@ -14,12 +14,55 @@ const OrderSuccess = () => {
   const [order, setOrder] = useState(location.state?.order || null);
   const [loading, setLoading] = useState(!location.state?.order);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [accessRestricted, setAccessRestricted] = useState(null);
 
   const queryParams = new URLSearchParams(location.search);
   const orderId = queryParams.get("orderId") || location.state?.orderId;
   const orderNumber = queryParams.get("orderNumber") || order?.orderNumber;
 
   useEffect(() => {
+    const targetKey = (orderNumber || orderId || "").toUpperCase();
+    if (!user && targetKey) {
+      const isPurchasedDevice = (
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("tuka_purchased_device_sig_" + targetKey) === "active" ||
+         (orderId && sessionStorage.getItem("tuka_purchased_device_sig_" + orderId) === "active") ||
+         localStorage.getItem("tuka_purchased_device_sig_" + targetKey) === "active" ||
+         (orderId && localStorage.getItem("tuka_purchased_device_sig_" + orderId) === "active"))
+      );
+      const hasViewed = (
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("tuka_order_success_viewed_" + targetKey) === "true" ||
+         (orderId && sessionStorage.getItem("tuka_order_success_viewed_" + orderId) === "true"))
+      );
+      const hasToken = (
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("tuka_single_view_token_" + targetKey) === "allowed" ||
+         (orderId && sessionStorage.getItem("tuka_single_view_token_" + orderId) === "allowed"))
+      );
+
+      if ((location.state?.order || hasToken) && isPurchasedDevice && !hasViewed) {
+        try {
+          sessionStorage.setItem("tuka_order_success_viewed_" + targetKey, "true");
+          if (orderId) sessionStorage.setItem("tuka_order_success_viewed_" + orderId, "true");
+          sessionStorage.removeItem("tuka_single_view_token_" + targetKey);
+          if (orderId) sessionStorage.removeItem("tuka_single_view_token_" + orderId);
+          localStorage.removeItem("tuka_purchased_device_sig_" + targetKey);
+          if (orderId) localStorage.removeItem("tuka_purchased_device_sig_" + orderId);
+        } catch (e) {}
+      } else if (hasViewed) {
+        setAccessRestricted("refreshed");
+        setLoading(false);
+        setOrder(null);
+        return;
+      } else if (!isPurchasedDevice || !hasToken) {
+        setAccessRestricted("unauthorized_device");
+        setLoading(false);
+        setOrder(null);
+        return;
+      }
+    }
+
     if (order) {
       setLoading(false);
       return;
@@ -42,7 +85,74 @@ const OrderSuccess = () => {
       }
     };
     fetchOrder();
-  }, [orderId, order]);
+  }, [orderId, order, user]);
+
+  if (accessRestricted) {
+    const cachedEmail = (() => {
+      try {
+        return localStorage.getItem("tuka_pending_email") || "";
+      } catch (e) {
+        return "";
+      }
+    })();
+    const finalOrderNumber = orderNumber || orderId || "ORDER";
+    const ordersRedirectUrl = `/orders?orderNumber=${encodeURIComponent(finalOrderNumber)}`;
+    const loginUrl = `/login?email=${encodeURIComponent(cachedEmail)}&redirect=${encodeURIComponent(ordersRedirectUrl)}`;
+
+    return (
+      <div className="min-h-screen bg-[#FDFAF5] font-sans text-[#161114] pb-24">
+        <Breadcrumb
+          title="Order Access Restricted"
+          subtitle="Protected Single-Device Order View"
+          links={[
+            { name: "Home", href: "/" },
+            { name: "Orders", href: "/orders" }
+          ]}
+        />
+        <div className="max-w-[700px] mx-auto px-6 pt-12">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-[32px] p-8 sm:p-10 border border-[#e5d5df] shadow-2xl text-center space-y-6 relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-[#b13896] to-rose-500" />
+            <div className="w-16 h-16 rounded-full bg-rose-50 text-[#b13896] border border-[#e5d5df] flex items-center justify-center mx-auto shadow-inner">
+              <ShieldAlert size={32} />
+            </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#b13896] bg-[#b13896]/10 px-3 py-1 rounded-full border border-[#b13896]/20">
+                {accessRestricted === "refreshed" ? "Single-Use View Expired" : "Protected Single-Device Order"}
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-serif text-[#161114]">
+                {accessRestricted === "refreshed" ? "Confirmation Link Expired After Refresh" : "Device Access Restricted"}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                {accessRestricted === "refreshed"
+                  ? "For your security, this confirmation view was visible only once on this device and has expired after page refresh. Please log in to view complete order history, track shipments, and download invoices."
+                  : "This order confirmation is bound to the single device where it was purchased. It cannot be opened on another device. To view your order on this device, please log in with your email address."}
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to={loginUrl}
+                className="w-full sm:w-auto px-8 py-3.5 bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LogIn size={16} />
+                <span>Login to View Orders</span>
+              </Link>
+              <Link
+                to="/shop"
+                className="w-full sm:w-auto px-6 py-3.5 bg-[#F8F4EF] hover:bg-[#ebdbe6] text-[#161114] text-xs font-bold uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-[#e5d5df]"
+              >
+                <ShoppingBag size={15} />
+                <span>Continue Shopping</span>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -58,6 +168,24 @@ const OrderSuccess = () => {
   const addr = order?.shippingAddress || {};
   const guestToken = order?.guestAccessToken;
   const guestTrackUrl = guestToken ? `${window.location.origin}/track-guest?orderNumber=${encodeURIComponent(finalOrderNumber)}&token=${encodeURIComponent(guestToken)}` : null;
+
+  const checkoutEmail =
+    order?.customerEmail ||
+    order?.shippingAddress?.email ||
+    order?.email ||
+    location.state?.order?.customerEmail ||
+    location.state?.customerEmail ||
+    (() => {
+      try {
+        return localStorage.getItem("tuka_pending_email") || "";
+      } catch (e) {
+        return "";
+      }
+    })();
+
+  const ordersRedirectUrl = `/orders?orderNumber=${encodeURIComponent(finalOrderNumber)}`;
+  const loginUrl = `/login?email=${encodeURIComponent(checkoutEmail)}&redirect=${encodeURIComponent(ordersRedirectUrl)}`;
+  const signupUrl = `/signup?email=${encodeURIComponent(checkoutEmail)}&redirect=${encodeURIComponent(ordersRedirectUrl)}`;
 
   const handleCopyTrackLink = () => {
     if (!guestTrackUrl) return;
@@ -112,9 +240,29 @@ const OrderSuccess = () => {
           <div className="pt-2 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 border-t border-slate-100 max-w-md mx-auto">
             <div className="flex items-center gap-2">
               <Mail size={14} className="text-[#b13896]" />
-              <span>Email sent to: <strong>{order?.customerEmail || "your email"}</strong></span>
+              <span>Email sent to: <strong>{checkoutEmail || order?.customerEmail || "your email"}</strong></span>
             </div>
           </div>
+
+          {!user && (
+            <div className="pt-4 border-t border-slate-100 max-w-xl mx-auto">
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#FDFAF5] border border-[#e5d5df] flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900">Track &amp; View Your Orders</p>
+                  <p className="text-[11px] text-slate-500 font-light">
+                    Log in with your checkout email to view itemized records, invoices, and live tracking.
+                  </p>
+                </div>
+                <Link
+                  to={loginUrl}
+                  className="shrink-0 px-5 py-2.5 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-md active:scale-95"
+                >
+                  <LogIn size={15} />
+                  <span>Login to View Orders</span>
+                </Link>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Order Details Grid */}
@@ -255,7 +403,7 @@ const OrderSuccess = () => {
                 {user ? (
                   "You can view live status updates, download invoices, and manage your delivery anytime in your account."
                 ) : (
-                  "You checked out as a guest. Create an account with your email to automatically sync and track all your orders."
+                  "You checked out as a guest. Log in to your account with this email to view all your orders, track shipments in real time, and download invoices."
                 )}
               </p>
 
@@ -267,12 +415,20 @@ const OrderSuccess = () => {
                   <Package size={15} /> View My Orders
                 </Link>
               ) : (
-                <Link
-                  to={`/signup?email=${encodeURIComponent(order?.customerEmail || "")}`}
-                  className="w-full py-3 rounded-xl bg-white/10 hover:bg-[#b13896] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all border border-white/20"
-                >
-                  Create Account to Sync <ArrowRight size={15} />
-                </Link>
+                <div className="space-y-2.5">
+                  <Link
+                    to={loginUrl}
+                    className="w-full py-3.5 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  >
+                    <LogIn size={15} /> Login to View Orders
+                  </Link>
+                  <Link
+                    to={signupUrl}
+                    className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition-all border border-white/20"
+                  >
+                    New here? Create Account <ArrowRight size={14} />
+                  </Link>
+                </div>
               )}
             </div>
 

@@ -140,11 +140,14 @@ const Footer = () => {
                   </div>
                   <a href="mailto:tukasupport@gmail.com" className="font-medium text-slate-800 hover:text-[#b13896] transition-colors">tukasupport@gmail.com</a>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#b13896]/10 flex items-center justify-center shrink-0 mt-0.5">
                     <MapPin size={16} className="text-[#b13896]" />
                   </div>
-                  <span className="font-medium text-slate-800">Bengal Weaving Cluster, West Bengal, India</span>
+                  <div className="text-sm">
+                    <span className="font-bold text-slate-900 block">2KA BOUTIQUE</span>
+                    <span className="text-xs text-slate-600 block leading-relaxed">Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303</span>
+                  </div>
                 </div>
                 {/* Legal Entity & KYC Verification Details */}
                 <div className="pt-2.5 border-t border-slate-200/80 space-y-1 text-xs text-slate-600">

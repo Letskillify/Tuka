@@ -29,7 +29,10 @@ import {
   Check,
   Loader2,
   Copy,
-  RefreshCw
+  RefreshCw,
+  LogIn,
+  ShieldAlert,
+  Lock
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { motion, AnimatePresence } from "framer-motion";
@@ -81,6 +84,7 @@ const OrderDetails = () => {
   });
   const [guestLoading, setGuestLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [accessRestrictedNotice, setAccessRestrictedNotice] = useState(null);
 
   // Modals state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -109,6 +113,22 @@ const OrderDetails = () => {
           } catch (e) {}
 
           const confirmedOrder = { id: data.orderId || data.order.id, ...data.order };
+          const finalNum = (data.orderNumber || confirmedOrder.orderNumber || "").toUpperCase();
+          if (finalNum) {
+            try {
+              sessionStorage.setItem("tuka_single_view_token_" + finalNum, "allowed");
+              sessionStorage.setItem("tuka_purchased_device_sig_" + finalNum, "active");
+              localStorage.setItem("tuka_purchased_device_sig_" + finalNum, "active");
+            } catch (e) {}
+          }
+          if (cfOrderId) {
+            try {
+              sessionStorage.setItem("tuka_single_view_token_" + cfOrderId, "allowed");
+              sessionStorage.setItem("tuka_purchased_device_sig_" + cfOrderId, "active");
+              localStorage.setItem("tuka_purchased_device_sig_" + cfOrderId, "active");
+            } catch (e) {}
+          }
+
           setActiveOrder(confirmedOrder);
           setOrders((prev) => {
             const without = prev.filter(
@@ -123,7 +143,7 @@ const OrderDetails = () => {
             total: confirmedOrder.total
           });
 
-          // Clean URL parameters while retaining order context
+          // Set order context in URL
           setSearchParams(
             { orderNumber: data.orderNumber || confirmedOrder.orderNumber, payment: "success" },
             { replace: true }
@@ -277,28 +297,139 @@ const OrderDetails = () => {
     // 1. Direct Lookup by ID / orderNumber / cashfreeOrderId if in URL
     if (selectedOrderNum) {
       const numClean = selectedOrderNum.trim();
-      const directRef = doc(db, "orders", numClean);
-      const unsubDoc = onSnapshot(directRef, (snap) => {
-        if (snap.exists()) {
-          orderMap.set(snap.id, { id: snap.id, ...snap.data() });
-          updateOrdersList();
+      const orderKey = numClean.toUpperCase();
+
+      if (!user) {
+        // Unauthenticated access: strictly enforce single-device and one-time viewing
+        const isPurchasedDevice = (
+          typeof window !== "undefined" &&
+          (sessionStorage.getItem("tuka_purchased_device_sig_" + orderKey) === "active" ||
+           sessionStorage.getItem("tuka_purchased_device_sig_" + numClean) === "active" ||
+           localStorage.getItem("tuka_purchased_device_sig_" + orderKey) === "active" ||
+           localStorage.getItem("tuka_purchased_device_sig_" + numClean) === "active")
+        );
+        const hasViewedOnce = (
+          typeof window !== "undefined" &&
+          (sessionStorage.getItem("tuka_order_viewed_once_" + orderKey) === "true" ||
+           sessionStorage.getItem("tuka_order_viewed_once_" + numClean) === "true")
+        );
+        const hasSingleViewToken = (
+          typeof window !== "undefined" &&
+          (sessionStorage.getItem("tuka_single_view_token_" + orderKey) === "allowed" ||
+           sessionStorage.getItem("tuka_single_view_token_" + numClean) === "allowed")
+        );
+
+        if (isPurchasedDevice && !hasViewedOnce && hasSingleViewToken) {
+          // Permitted only once on the single device where checkout occurred
+          setAccessRestrictedNotice(null);
+
+          const markViewConsumed = () => {
+            try {
+              sessionStorage.setItem("tuka_order_viewed_once_" + orderKey, "true");
+              sessionStorage.setItem("tuka_order_viewed_once_" + numClean, "true");
+              sessionStorage.removeItem("tuka_single_view_token_" + orderKey);
+              sessionStorage.removeItem("tuka_single_view_token_" + numClean);
+              localStorage.removeItem("tuka_purchased_device_sig_" + orderKey);
+              localStorage.removeItem("tuka_purchased_device_sig_" + numClean);
+
+              // Clear payment=success from address bar so it doesn't linger
+              const sp = new URLSearchParams(window.location.search);
+              if (sp.has("payment")) {
+                sp.delete("payment");
+                const newQuery = sp.toString() ? `?${sp.toString()}` : "";
+                window.history.replaceState(null, "", `${window.location.pathname}${newQuery}`);
+              }
+            } catch (e) {}
+          };
+
+          const directRef = doc(db, "orders", numClean);
+          const unsubDoc = onSnapshot(directRef, (snap) => {
+            if (snap.exists()) {
+              orderMap.set(snap.id, { id: snap.id, ...snap.data() });
+              updateOrdersList();
+              markViewConsumed();
+            }
+          }, (e) => console.warn("[OrderDetails] direct order listen error:", e.message));
+          unsubs.push(unsubDoc);
+
+          const numQ = query(collection(db, "orders"), where("orderNumber", "==", orderKey));
+          const unsubNum = onSnapshot(numQ, (snap) => {
+            snap.forEach((d) => {
+              orderMap.set(d.id, { id: d.id, ...d.data() });
+              markViewConsumed();
+            });
+            updateOrdersList();
+          }, (e) => console.warn("[OrderDetails] num query error:", e.message));
+          unsubs.push(unsubNum);
+
+          const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
+          const unsubCf = onSnapshot(cfQ, (snap) => {
+            snap.forEach((d) => {
+              orderMap.set(d.id, { id: d.id, ...d.data() });
+              markViewConsumed();
+            });
+            updateOrdersList();
+          }, (e) => console.warn("[OrderDetails] cf query error:", e.message));
+          unsubs.push(unsubCf);
+        } else {
+          // Block direct viewing because link is either expired after refresh or accessed on an unauthorized device
+          setLoading(false);
+          setGuestLoading(false);
+          setActiveOrder(null);
+          setOrders([]);
+          setPaymentSuccessBanner(null);
+
+          const cachedEmail = (typeof window !== "undefined" ? localStorage.getItem("tuka_pending_email") : "") || "";
+          if (hasViewedOnce) {
+            setAccessRestrictedNotice({
+              type: "refreshed",
+              title: "Single-Use Link Expired",
+              message: "For your security, this post-purchase confirmation was visible only once on this device and has expired after page refresh. Please log in to view complete order history, track shipments, and download invoices.",
+              orderNumber: orderKey,
+              email: cachedEmail
+            });
+          } else {
+            setAccessRestrictedNotice({
+              type: "unauthorized_device",
+              title: "Device Access Restricted",
+              message: "This order link is bound to the single device where it was purchased. It cannot be opened on another device. To view your order here, please log in with your email address.",
+              orderNumber: orderKey,
+              email: cachedEmail
+            });
+          }
         }
-      }, (e) => console.warn("[OrderDetails] direct order listen error:", e.message));
-      unsubs.push(unsubDoc);
+      } else {
+        // Authenticated user: only allow loading if user owns this order
+        setAccessRestrictedNotice(null);
+        const checkAndAdd = (snapId, data) => {
+          const isOwner = (data.userId && data.userId === user.uid) || 
+                          (data.customerEmail && data.customerEmail.toLowerCase() === user.email?.toLowerCase());
+          if (isOwner) {
+            orderMap.set(snapId, { id: snapId, ...data });
+            updateOrdersList();
+          }
+        };
 
-      const numQ = query(collection(db, "orders"), where("orderNumber", "==", numClean.toUpperCase()));
-      const unsubNum = onSnapshot(numQ, (snap) => {
-        snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-        updateOrdersList();
-      }, (e) => console.warn("[OrderDetails] num query error:", e.message));
-      unsubs.push(unsubNum);
+        const directRef = doc(db, "orders", numClean);
+        const unsubDoc = onSnapshot(directRef, (snap) => {
+          if (snap.exists()) {
+            checkAndAdd(snap.id, snap.data());
+          }
+        }, (e) => console.warn("[OrderDetails] direct order listen error:", e.message));
+        unsubs.push(unsubDoc);
 
-      const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
-      const unsubCf = onSnapshot(cfQ, (snap) => {
-        snap.forEach((d) => orderMap.set(d.id, { id: d.id, ...d.data() }));
-        updateOrdersList();
-      }, (e) => console.warn("[OrderDetails] cf query error:", e.message));
-      unsubs.push(unsubCf);
+        const numQ = query(collection(db, "orders"), where("orderNumber", "==", orderKey));
+        const unsubNum = onSnapshot(numQ, (snap) => {
+          snap.forEach((d) => checkAndAdd(d.id, d.data()));
+        }, (e) => console.warn("[OrderDetails] num query error:", e.message));
+        unsubs.push(unsubNum);
+
+        const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
+        const unsubCf = onSnapshot(cfQ, (snap) => {
+          snap.forEach((d) => checkAndAdd(d.id, d.data()));
+        }, (e) => console.warn("[OrderDetails] cf query error:", e.message));
+        unsubs.push(unsubCf);
+      }
     }
 
     // 2. Query by Authenticated User ID
@@ -410,7 +541,7 @@ const OrderDetails = () => {
         )}
 
         {/* Payment Success Celebration Banner */}
-        {paymentSuccessBanner && (
+        {paymentSuccessBanner && !accessRestrictedNotice && (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -439,17 +570,83 @@ const OrderDetails = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setPaymentSuccessBanner(null)}
-              className="self-end md:self-center p-2 text-emerald-600 hover:text-emerald-900 rounded-xl hover:bg-emerald-100 transition-colors cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-3 self-end md:self-center">
+              {!user && (
+                <Link
+                  to={`/login?email=${encodeURIComponent(activeOrder?.customerEmail || guestEmailSubmitted || (typeof window !== "undefined" ? localStorage.getItem("tuka_pending_email") : "") || "")}&redirect=${encodeURIComponent(`/orders?orderNumber=${encodeURIComponent(paymentSuccessBanner.orderNumber || activeOrder?.orderNumber || "")}`)}`}
+                  className="px-4 py-2.5 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-md shrink-0 cursor-pointer"
+                >
+                  <LogIn size={15} />
+                  <span>Login to View Orders</span>
+                </Link>
+              )}
+              <button
+                onClick={() => setPaymentSuccessBanner(null)}
+                className="p-2 text-emerald-600 hover:text-emerald-900 rounded-xl hover:bg-emerald-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </motion.div>
         )}
 
-        {/* Guest User Email Lookup Prompt (if not logged in) */}
-        {!user && orders.length === 0 && !loading && (
+        {/* Single-Device / Expired-After-Refresh Security Card */}
+        {accessRestrictedNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-[32px] p-8 sm:p-10 border border-[#e5d5df] shadow-2xl max-w-xl mx-auto text-center space-y-6 mb-12 relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-[#b13896] to-rose-500" />
+            
+            <div className="w-16 h-16 rounded-full bg-rose-50 text-[#b13896] border border-[#e5d5df] flex items-center justify-center mx-auto shadow-inner">
+              <ShieldAlert size={32} />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#b13896] bg-[#b13896]/10 px-3 py-1 rounded-full border border-[#b13896]/20">
+                {accessRestrictedNotice.type === "refreshed" ? "Single-Use View Expired" : "Protected Single-Device Order"}
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-serif text-[#161114]">
+                {accessRestrictedNotice.title}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                {accessRestrictedNotice.message}
+              </p>
+            </div>
+
+            {accessRestrictedNotice.orderNumber && (
+              <div className="inline-block px-4 py-1.5 rounded-xl bg-[#F8F4EF] border border-[#e5d5df] text-xs font-mono font-bold text-slate-700">
+                Order Ref: #{accessRestrictedNotice.orderNumber}
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to={`/login?email=${encodeURIComponent(accessRestrictedNotice.email || (typeof window !== "undefined" ? localStorage.getItem("tuka_pending_email") : "") || "")}&redirect=${encodeURIComponent(`/orders?orderNumber=${encodeURIComponent(accessRestrictedNotice.orderNumber || "")}`)}`}
+                className="w-full sm:w-auto px-8 py-3.5 bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LogIn size={16} />
+                <span>Login to View Orders</span>
+              </Link>
+
+              <Link
+                to="/shop"
+                className="w-full sm:w-auto px-6 py-3.5 bg-[#F8F4EF] hover:bg-[#ebdbe6] text-[#161114] text-xs font-bold uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-[#e5d5df]"
+              >
+                <ShoppingBag size={15} />
+                <span>Continue Shopping</span>
+              </Link>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500">
+              Need assistance? Email our concierge at <span className="font-semibold text-slate-700">orders@letskillify.in</span> or contact support.
+            </div>
+          </motion.div>
+        )}
+
+        {/* Guest User Email Lookup Prompt (if not logged in and not restricted) */}
+        {!user && !accessRestrictedNotice && orders.length === 0 && !loading && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -490,7 +687,10 @@ const OrderDetails = () => {
 
             <div className="pt-4 border-t border-slate-100 flex justify-center gap-4 text-xs font-bold text-slate-600">
               <span>Already have an account?</span>
-              <Link to="/login" className="text-[#b13896] underline">
+              <Link
+                to={`/login?email=${encodeURIComponent(guestEmailInput || guestEmailSubmitted || (typeof window !== "undefined" ? localStorage.getItem("tuka_pending_email") : "") || "")}&redirect=${encodeURIComponent("/orders")}`}
+                className="text-[#b13896] underline"
+              >
                 Sign In
               </Link>
             </div>
@@ -975,10 +1175,10 @@ const OrderDetails = () => {
               <div className="space-y-6 font-sans">
                 <div className="flex justify-between items-start border-b border-slate-200 pb-6">
                   <div>
-                    <h1 className="text-2xl font-serif font-bold text-[#161114] tracking-wider">HOUSE OF TUKA</h1>
-                    <p className="text-xs text-slate-500 mt-1">Authentic Bengal Handloom Heritage</p>
-                    <p className="text-[11px] text-slate-400">Bengal Weaving Cluster, West Bengal, India</p>
-                    <p className="text-[11px] text-slate-400">GSTIN: 19ABCDE1234F1Z5 | Support: hello@tuka.in</p>
+                    <h1 className="text-2xl font-serif font-bold text-[#161114] tracking-wider">2KA BOUTIQUE</h1>
+                    <p className="text-xs text-slate-500 mt-1">House of Tuka • Bengal Handloom Heritage</p>
+                    <p className="text-[11px] text-slate-400">Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303</p>
+                    <p className="text-[11px] text-slate-400">GSTIN: 19ABCDE1234F1Z5 | Support: tukasupport@gmail.com</p>
                   </div>
                   <div className="text-right">
                     <span className="px-3 py-1 bg-slate-900 text-white font-mono text-xs font-bold rounded-lg inline-block">TAX INVOICE</span>
@@ -1162,7 +1362,7 @@ const OrderDetails = () => {
                         {[
                           { label: "Order Received & Verified", time: "Completed", done: true },
                           { label: "Manifest Generated in iThink Logistics", time: activeOrder.awbCode ? "Manifest Ready" : "In Progress", done: true },
-                          { label: "Courier Pickup from Hub (Bengal)", time: "Pending Pickup", done: ['shipped', 'out_for_delivery', 'delivered'].includes(status) },
+                          { label: "Courier Pickup from 2KA BOUTIQUE (Virar West)", time: "Pending Pickup", done: ['shipped', 'out_for_delivery', 'delivered'].includes(status) },
                           { label: "In Transit via National Air/Surface", time: "Regional Sorting", done: ['shipped', 'out_for_delivery', 'delivered'].includes(status) },
                           { label: "Out for Doorstep Delivery", time: "Destination Hub", done: ['out_for_delivery', 'delivered'].includes(status) },
                           { label: "Delivered to Customer", time: "Final Delivery", done: status === 'delivered' }

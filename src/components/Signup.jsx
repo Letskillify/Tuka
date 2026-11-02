@@ -26,7 +26,7 @@ const Signup = () => {
   const location = useLocation();
 
   const getRedirectUrl = () => {
-    const redirectParam = new URLSearchParams(location.search).get("redirect");
+    const redirectParam = new URLSearchParams(location.search).get("redirect") || location.state?.redirect;
     if (!redirectParam) return "/account";
     return redirectParam.startsWith("/") ? redirectParam : `/${redirectParam}`;
   };
@@ -43,7 +43,28 @@ const Signup = () => {
   const [step, setStep] = useState(1);
 
   const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
+
+  const getInitialEmail = () => {
+    const params = new URLSearchParams(location.search);
+    const searchEmail = params.get("email");
+    if (searchEmail) return searchEmail;
+    if (location.state?.email) return location.state.email;
+    try {
+      return localStorage.getItem("tuka_pending_email") || "";
+    } catch (e) {
+      return "";
+    }
+  };
+
+  const [email, setEmail] = useState(getInitialEmail);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const paramEmail = params.get("email") || location.state?.email;
+    if (paramEmail && paramEmail.trim()) {
+      setEmail(paramEmail.trim());
+    }
+  }, [location.search, location.state]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -475,7 +496,7 @@ const Signup = () => {
             {/* Footer Link Switcher */}
             <div className="mt-8 text-center text-xs font-serif">
               <span className="text-[#86756c]">Have an account? </span>
-              <Link to="/login" className="text-[#161114] font-semibold underline hover:text-[#b13896]">
+              <Link to={`/login${location.search}`} className="text-[#161114] font-semibold underline hover:text-[#b13896]">
                 Sign In
               </Link>
             </div>

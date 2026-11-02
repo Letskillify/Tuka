@@ -59,8 +59,12 @@ export const generateCustomerEmailHtml = (order) => {
   const isPaid = String(order.paymentStatus || "").toLowerCase() === "paid";
   const orderNumber = order.orderNumber || order.orderId || "ORD-PENDING";
   const formattedDate = formatOrderDate(order.createdAt || order.orderDate);
-  const orderUrl = `https://tuka.co.in/orders?orderNumber=${encodeURIComponent(orderNumber)}`;
-  const trackingUrl = order.trackingUrl || (order.awbCode ? `https://ithinklogistics.trackshipment.in/${encodeURIComponent(order.awbCode)}` : orderUrl);
+  const customerEmail = String(order.customerEmail || (order.shippingAddress && order.shippingAddress.email) || "").trim();
+  const baseUrl = (process.env.PUBLIC_APP_URL || process.env.VITE_APP_URL || process.env.APP_URL || "https://tuka.co.in").replace(/\/$/, "");
+  const orderTarget = `/orders?orderNumber=${encodeURIComponent(orderNumber)}`;
+  const viewOrderUrl = `${baseUrl}/login?email=${encodeURIComponent(customerEmail)}&redirect=${encodeURIComponent(orderTarget)}`;
+  const orderUrl = viewOrderUrl;
+  const trackingUrl = order.trackingUrl || (order.awbCode ? `https://ithinklogistics.trackshipment.in/${encodeURIComponent(order.awbCode)}` : viewOrderUrl);
 
   const items = Array.isArray(order.items) && order.items.length > 0 ? order.items : [
     {
@@ -105,7 +109,6 @@ export const generateCustomerEmailHtml = (order) => {
 
   const addr = order.shippingAddress || {};
   const recipientName = order.customerName || addr.fullName || "Valued Patron";
-  const customerEmail = order.customerEmail || "N/A";
   const customerPhone = order.customerPhone || addr.phone || "N/A";
 
   const addressFormatted = [
@@ -212,19 +215,10 @@ export const generateCustomerEmailHtml = (order) => {
                 ${order.awbCode ? `
                 <tr>
                   <td colspan="2" style="border-top: 1px solid #f0e6ee; padding-top: 14px; margin-top: 8px;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td>
-                          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Courier Dispatch</div>
-                          <div style="font-size: 13px; font-weight: 700; color: #161114; margin-top: 2px;">
-                            ${order.courierName || 'iThink Logistics Partner'} — AWB: <span style="font-family: monospace; color: #b13896;">${order.awbCode}</span>
-                          </div>
-                        </td>
-                        <td align="right">
-                          <a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 7px 16px; background-color: #b13896; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Track Shipment &rarr;</a>
-                        </td>
-                      </tr>
-                    </table>
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Courier Dispatch Partner</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #161114; margin-top: 3px;">
+                      ${order.courierName || 'iThink Logistics Partner'} &bull; AWB: <span style="font-family: monospace; color: #b13896; font-size: 14px;">${order.awbCode}</span>
+                    </div>
                   </td>
                 </tr>
                 ` : ''}
@@ -307,14 +301,14 @@ export const generateCustomerEmailHtml = (order) => {
             </td>
           </tr>
 
-          <!-- Action Buttons -->
+          <!-- Action Buttons (Single Unified CTA) -->
           <tr>
-            <td style="padding: 0 36px 36px 36px; text-align: center;" class="mobile-padding">
+            <td style="padding: 6px 36px 36px 36px; text-align: center;" class="mobile-padding">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <a href="${orderUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; background-color: #b13896; color: #ffffff; text-decoration: none; border-radius: 9999px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(177, 56, 150, 0.25);">
-                      View Order Details &rarr;
+                    <a href="${viewOrderUrl}" target="_blank" style="display: inline-block; padding: 15px 36px; background-color: #b13896; color: #ffffff; text-decoration: none; border-radius: 9999px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; box-shadow: 0 4px 18px rgba(177, 56, 150, 0.35);">
+                      View Order &rarr;
                     </a>
                   </td>
                 </tr>

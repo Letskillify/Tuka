@@ -142,13 +142,13 @@ const Contact = () => {
                   </div>
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block" style={{ fontFamily: SANS }}>
-                      Studio Location
+                      Boutique &amp; Pickup Origin
                     </span>
                     <p className="text-sm font-semibold text-slate-900 font-sans leading-snug">
-                      Bengal Handloom Weaving Hub
+                      2KA BOUTIQUE
                     </p>
-                    <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
-                      Hooghly & Kolkata, West Bengal, India
+                    <span className="text-[11px] text-slate-500 font-normal leading-relaxed block" style={{ fontFamily: SANS }}>
+                      Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303
                     </span>
                   </div>
                 </div>

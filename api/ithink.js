@@ -115,9 +115,9 @@ export default async function handler(req, res) {
             {
               status: "Order Confirmed",
               statusCode: "CONFIRMED",
-              location: "House of Tuka Weaving Hub (West Bengal)",
+              location: "2KA BOUTIQUE, Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303",
               dateTime: new Date().toISOString(),
-              remark: "Customer order confirmed & verified"
+              remark: "Customer order confirmed & verified at pickup origin"
             }
           ]
         });
@@ -141,7 +141,7 @@ export default async function handler(req, res) {
           {
             status: "Manifest Generated",
             statusCode: "MANIFESTED",
-            location: "Bengal Handloom Hub, Hooghly (700001)",
+            location: "2KA BOUTIQUE, Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303",
             dateTime: new Date().toISOString(),
             remark: "Package label created & awaiting courier pickup"
           }

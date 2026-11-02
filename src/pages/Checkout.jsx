@@ -220,6 +220,22 @@ const Checkout = () => {
       // Clear cart ONLY after verified success
       await clearCart();
 
+      // Cache checkout email & device-bound one-time token for post-purchase single-view
+      try {
+        localStorage.setItem("tuka_pending_email", formData.email);
+        const ordNum = (data.orderNumber || "").toUpperCase();
+        if (ordNum) {
+          sessionStorage.setItem("tuka_single_view_token_" + ordNum, "allowed");
+          sessionStorage.setItem("tuka_purchased_device_sig_" + ordNum, "active");
+          localStorage.setItem("tuka_purchased_device_sig_" + ordNum, "active");
+        }
+        if (data.orderId) {
+          sessionStorage.setItem("tuka_single_view_token_" + data.orderId, "allowed");
+          sessionStorage.setItem("tuka_purchased_device_sig_" + data.orderId, "active");
+          localStorage.setItem("tuka_purchased_device_sig_" + data.orderId, "active");
+        }
+      } catch (e) {}
+
       // Navigate to dedicated Order Success page
       navigate(`/order-success?orderId=${data.orderId}&orderNumber=${data.orderNumber}`, {
         state: { order: data.order, orderId: data.orderId, orderNumber: data.orderNumber }
@@ -323,7 +339,7 @@ const Checkout = () => {
         throw new Error(cData.error || "Could not initialize online payment.");
       }
 
-      // Persist pending order identifier locally so verification can immediately pick it up
+      // Persist pending order identifier and device-bound token locally
       try {
         localStorage.setItem("tuka_pending_checkout", JSON.stringify({
           cashfreeOrderId: cData.order_id,
@@ -332,6 +348,17 @@ const Checkout = () => {
           email: formData.email
         }));
         localStorage.setItem("tuka_pending_email", formData.email);
+        const ordNum = (cData.order_number || "").toUpperCase();
+        if (ordNum) {
+          sessionStorage.setItem("tuka_single_view_token_" + ordNum, "allowed");
+          sessionStorage.setItem("tuka_purchased_device_sig_" + ordNum, "active");
+          localStorage.setItem("tuka_purchased_device_sig_" + ordNum, "active");
+        }
+        if (cData.order_id) {
+          sessionStorage.setItem("tuka_single_view_token_" + cData.order_id, "allowed");
+          sessionStorage.setItem("tuka_purchased_device_sig_" + cData.order_id, "active");
+          localStorage.setItem("tuka_purchased_device_sig_" + cData.order_id, "active");
+        }
       } catch (e) {}
 
       // Check for dev mode fallback

@@ -120,7 +120,7 @@ export async function createOrderShipment(order) {
       addr.street || addr.address,
       addr.locality,
       addr.landmark
-    ].filter(Boolean).join(", ") || "Bengal Handloom Hub, Hooghly";
+    ].filter(Boolean).join(", ") || "Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303";
 
     const payload = {
       data: {
@@ -324,7 +324,7 @@ export async function checkRateAndServiceability({
   try {
     const config = getConfig();
     const destinationPin = String(pincode || "").trim();
-    const originPin = String(fromPincode || config.originPincode || "700001").trim();
+    const originPin = String(fromPincode || config.originPincode || "401303").trim();
 
     if (!destinationPin || destinationPin.length !== 6) {
       return {
