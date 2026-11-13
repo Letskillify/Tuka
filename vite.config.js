@@ -57,11 +57,11 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/razorpay/create-order') {
             const module = await server.ssrLoadModule('/api/razorpay/create-order.js');
             return await module.default(req, res);
-          } else if (pathname === '/api/cashfree/create-order') {
-            const module = await server.ssrLoadModule('/api/cashfree/create-order.js');
+          } else if (pathname === '/api/razorpay/verify-order') {
+            const module = await server.ssrLoadModule('/api/razorpay/verify-order.js');
             return await module.default(req, res);
-          } else if (pathname === '/api/cashfree/verify-order') {
-            const module = await server.ssrLoadModule('/api/cashfree/verify-order.js');
+          } else if (pathname === '/api/razorpay/webhook') {
+            const module = await server.ssrLoadModule('/api/razorpay/webhook.js');
             return await module.default(req, res);
           } else if (pathname === '/api/cloudinary/delete') {
             const module = await server.ssrLoadModule('/api/cloudinary/delete.js');

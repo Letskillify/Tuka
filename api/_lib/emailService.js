@@ -194,7 +194,7 @@ export const generateCustomerEmailHtml = (order) => {
                   <td class="mobile-stack" width="50%" style="vertical-align: top; text-align: right;" align="right">
                     <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888;">Payment Verification</div>
                     <div style="font-size: 13px; font-weight: 700; color: #161114; margin-top: 3px;">
-                      ${order.paymentMethod || (isPaid ? 'Online Payment (Cashfree)' : 'Cash on Delivery (COD)')}
+                      ${order.paymentMethod || (isPaid ? 'Online Payment (Razorpay)' : 'Cash on Delivery (COD)')}
                     </div>
                     <div style="margin-top: 5px;">
                       <span style="display: inline-block; background-color: ${isPaid ? '#dcfce7' : '#fef3c7'}; color: ${isPaid ? '#15803d' : '#92400e'}; border: 1px solid ${isPaid ? '#bbf7d0' : '#fde68a'}; padding: 3px 10px; border-radius: 9999px; font-weight: 700; font-size: 11px;">
@@ -391,7 +391,7 @@ export const generateAdminEmailHtml = (order) => {
         <td><strong>Payment Method:</strong> ${order.paymentMethod || 'N/A'}</td>
         <td><strong>Payment Status:</strong> <strong style="color: ${String(order.paymentStatus).toLowerCase() === 'paid' ? '#15803d' : '#b45309'};">${String(order.paymentStatus || 'Pending').toUpperCase()}</strong></td>
       </tr>
-      ${order.bankReference ? `<tr><td colspan="2"><strong>Cashfree Bank Ref / UTR:</strong> <span style="font-family: monospace;">${order.bankReference}</span></td></tr>` : ''}
+      ${order.bankReference ? `<tr><td colspan="2"><strong>Bank Ref / UTR:</strong> <span style="font-family: monospace;">${order.bankReference}</span></td></tr>` : ''}
       ${order.paymentId ? `<tr><td colspan="2"><strong>Payment ID:</strong> <span style="font-family: monospace;">${order.paymentId}</span></td></tr>` : ''}
       ${order.awbCode ? `<tr><td colspan="2"><strong>iThink Logistics AWB:</strong> <span style="font-family: monospace; color: #b13896;">${order.awbCode}</span> (${order.courierName || 'Assigned Courier'})</td></tr>` : ''}
     </table>

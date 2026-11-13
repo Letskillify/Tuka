@@ -726,7 +726,7 @@ const Account = () => {
                         const isShipped = isDelivered || rawStatus.includes('shipped') || rawStatus.includes('transit');
                         const isPacked = isShipped || rawStatus.includes('packed') || rawStatus.includes('processing');
                         const isConfirmed = isPacked || rawStatus.includes('confirmed') || rawStatus.includes('placed');
-                        const payId = order.paymentId || order.cashfreePaymentId || order.cfPaymentId;
+                        const payId = order.paymentId || order.razorpayPaymentId || order.cashfreePaymentId || order.cfPaymentId;
 
                         return (
                           <div key={order.id} className="p-5 sm:p-6 rounded-2xl bg-[#F8F4EF] border border-[#e6ded8] space-y-5">
@@ -757,9 +757,9 @@ const Account = () => {
                                       UTR: {order.bankReference}
                                     </span>
                                   )}
-                                  {String(order.paymentStatus).toLowerCase() !== "paid" && order.cashfreeOrderId && (
+                                  {String(order.paymentStatus).toLowerCase() !== "paid" && (order.razorpayOrderId || order.cashfreeOrderId) && (
                                     <Link
-                                      to={`/orders?cf_order_id=${encodeURIComponent(order.cashfreeOrderId)}`}
+                                      to={`/orders?order_id=${encodeURIComponent(order.razorpayOrderId || order.cashfreeOrderId)}`}
                                       className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-300 inline-flex items-center gap-1 transition-colors"
                                     >
                                       Verify Status &rarr;

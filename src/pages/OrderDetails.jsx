@@ -54,22 +54,22 @@ const OrderDetails = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedOrderNum = searchParams.get("orderNumber") || searchParams.get("id") || "";
-  const cfOrderId = searchParams.get("cf_order_id") || searchParams.get("order_id") || "";
+  const paymentOrderId = searchParams.get("razorpay_order_id") || searchParams.get("rzp_order_id") || searchParams.get("order_id") || searchParams.get("cf_order_id") || "";
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeOrder, setActiveOrder] = useState(null);
   const [filterQuery, setFilterQuery] = useState("");
 
-  // Cashfree Verification & Success States
-  const [verifyingPayment, setVerifyingPayment] = useState(Boolean(cfOrderId));
+  // Razorpay Verification & Success States
+  const [verifyingPayment, setVerifyingPayment] = useState(Boolean(paymentOrderId));
   const [paymentSuccessBanner, setPaymentSuccessBanner] = useState(
     searchParams.get("payment") === "success"
       ? { message: "Payment verified successfully! Your order is confirmed." }
       : null
   );
 
-  // Manual Claim by Payment ID state (e.g. for past unlinked payments like 688991276)
+  // Manual Claim by Payment ID state (e.g. for unlinked payments)
   const [claimPaymentInput, setClaimPaymentInput] = useState("");
   const [claimingPayment, setClaimingPayment] = useState(false);
 
@@ -93,16 +93,16 @@ const OrderDetails = () => {
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState("");
 
-  // Cashfree auto-verification effect on return_url redirect
+  // Razorpay auto-verification effect on return / query redirect
   useEffect(() => {
-    if (!cfOrderId) return;
+    if (!paymentOrderId) return;
     let isMounted = true;
 
     const verify = async () => {
       setVerifyingPayment(true);
       setErrorMsg("");
       try {
-        const res = await fetch(`/api/cashfree/verify-order?orderId=${encodeURIComponent(cfOrderId)}`);
+        const res = await fetch(`/api/razorpay/verify-order?orderId=${encodeURIComponent(paymentOrderId)}`);
         const data = await res.json();
         if (!isMounted) return;
 
@@ -121,11 +121,11 @@ const OrderDetails = () => {
               localStorage.setItem("tuka_purchased_device_sig_" + finalNum, "active");
             } catch (e) {}
           }
-          if (cfOrderId) {
+          if (paymentOrderId) {
             try {
-              sessionStorage.setItem("tuka_single_view_token_" + cfOrderId, "allowed");
-              sessionStorage.setItem("tuka_purchased_device_sig_" + cfOrderId, "active");
-              localStorage.setItem("tuka_purchased_device_sig_" + cfOrderId, "active");
+              sessionStorage.setItem("tuka_single_view_token_" + paymentOrderId, "allowed");
+              sessionStorage.setItem("tuka_purchased_device_sig_" + paymentOrderId, "active");
+              localStorage.setItem("tuka_purchased_device_sig_" + paymentOrderId, "active");
             } catch (e) {}
           }
 
@@ -153,8 +153,8 @@ const OrderDetails = () => {
         }
       } catch (err) {
         if (isMounted) {
-          console.error("[OrderDetails] Cashfree verify error:", err);
-          setErrorMsg("Could not verify payment with Cashfree. Please refresh or contact support.");
+          console.error("[OrderDetails] Razorpay verify error:", err);
+          setErrorMsg("Could not verify payment with Razorpay. Please refresh or contact support.");
         }
       } finally {
         if (isMounted) setVerifyingPayment(false);
@@ -165,16 +165,16 @@ const OrderDetails = () => {
     return () => {
       isMounted = false;
     };
-  }, [cfOrderId]);
+  }, [paymentOrderId]);
 
-  // Re-verify a pending or unverified Cashfree order on demand
+  // Re-verify a pending or unverified order on demand
   const handleReverifyOrder = async (order) => {
     if (!order) return;
-    const targetId = order.cashfreeOrderId || order.orderId || order.id || order.orderNumber;
+    const targetId = order.razorpayOrderId || order.orderId || order.id || order.orderNumber || order.cashfreeOrderId;
     setVerifyingPayment(true);
     setErrorMsg("");
     try {
-      const res = await fetch(`/api/cashfree/verify-order?orderId=${encodeURIComponent(targetId)}`);
+      const res = await fetch(`/api/razorpay/verify-order?orderId=${encodeURIComponent(targetId)}`);
       const data = await res.json();
       if (res.ok && data.success && data.order) {
         const confirmedOrder = { id: data.orderId || data.order.id, ...data.order };
@@ -189,7 +189,7 @@ const OrderDetails = () => {
           total: confirmedOrder.total
         });
       } else {
-        setErrorMsg(data.error || data.message || "Payment status is still pending verification with Cashfree. Please allow a moment and try again.");
+        setErrorMsg(data.error || data.message || "Payment status is still pending verification with Razorpay. Please allow a moment and try again.");
       }
     } catch (err) {
       setErrorMsg("Network error connecting to payment verification service. Please try again.");
@@ -198,7 +198,7 @@ const OrderDetails = () => {
     }
   };
 
-  // Claim Order by Payment ID (e.g. 688991276)
+  // Claim Order by Payment ID
   const handleClaimPayment = async (e) => {
     e.preventDefault();
     const pid = claimPaymentInput.trim();
@@ -207,7 +207,7 @@ const OrderDetails = () => {
     setClaimingPayment(true);
     setErrorMsg("");
     try {
-      const res = await fetch("/api/cashfree/verify-order", {
+      const res = await fetch("/api/razorpay/verify-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -279,7 +279,7 @@ const OrderDetails = () => {
         if (selectedOrderNum) {
           const s = selectedOrderNum.trim().toUpperCase();
           const found = list.find(
-            (o) => o.orderNumber?.toUpperCase() === s || o.id === selectedOrderNum || o.cashfreeOrderId === selectedOrderNum
+            (o) => o.orderNumber?.toUpperCase() === s || o.id === selectedOrderNum || o.razorpayOrderId === selectedOrderNum || o.cashfreeOrderId === selectedOrderNum
           );
           if (found) return found;
         }
@@ -294,7 +294,7 @@ const OrderDetails = () => {
       setGuestLoading(false);
     };
 
-    // 1. Direct Lookup by ID / orderNumber / cashfreeOrderId if in URL
+    // 1. Direct Lookup by ID / orderNumber / razorpayOrderId if in URL
     if (selectedOrderNum) {
       const numClean = selectedOrderNum.trim();
       const orderKey = numClean.toUpperCase();
@@ -362,6 +362,16 @@ const OrderDetails = () => {
           }, (e) => console.warn("[OrderDetails] num query error:", e.message));
           unsubs.push(unsubNum);
 
+          const rzpQ = query(collection(db, "orders"), where("razorpayOrderId", "==", numClean));
+          const unsubRzp = onSnapshot(rzpQ, (snap) => {
+            snap.forEach((d) => {
+              orderMap.set(d.id, { id: d.id, ...d.data() });
+              markViewConsumed();
+            });
+            updateOrdersList();
+          }, (e) => console.warn("[OrderDetails] rzp query error:", e.message));
+          unsubs.push(unsubRzp);
+
           const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
           const unsubCf = onSnapshot(cfQ, (snap) => {
             snap.forEach((d) => {
@@ -423,6 +433,12 @@ const OrderDetails = () => {
           snap.forEach((d) => checkAndAdd(d.id, d.data()));
         }, (e) => console.warn("[OrderDetails] num query error:", e.message));
         unsubs.push(unsubNum);
+
+        const rzpQ = query(collection(db, "orders"), where("razorpayOrderId", "==", numClean));
+        const unsubRzp = onSnapshot(rzpQ, (snap) => {
+          snap.forEach((d) => checkAndAdd(d.id, d.data()));
+        }, (e) => console.warn("[OrderDetails] rzp query error:", e.message));
+        unsubs.push(unsubRzp);
 
         const cfQ = query(collection(db, "orders"), where("cashfreeOrderId", "==", numClean));
         const unsubCf = onSnapshot(cfQ, (snap) => {
@@ -523,7 +539,7 @@ const OrderDetails = () => {
 
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
         
-        {/* Cashfree Payment Verification Loader */}
+        {/* Razorpay Payment Verification Loader */}
         {verifyingPayment && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -533,7 +549,7 @@ const OrderDetails = () => {
             <div className="flex items-center gap-3">
               <Loader2 size={24} className="animate-spin text-[#b13896] shrink-0" />
               <div>
-                <h4 className="text-sm font-bold font-serif">Verifying Your Cashfree Payment...</h4>
+                <h4 className="text-sm font-bold font-serif">Verifying Your Razorpay Payment...</h4>
                 <p className="text-xs text-purple-700">Please wait a moment while our gateway confirms the transaction and updates your order records.</p>
               </div>
             </div>
@@ -761,7 +777,7 @@ const OrderDetails = () => {
                   const itemPreview = ord.items?.[0];
 
                   const stBadge = getOrderStatusBadge(ord.orderStatus || ord.status);
-                  const payId = ord.paymentId || ord.cashfreePaymentId || ord.cfPaymentId || ord.paymentDetails?.paymentId;
+                  const payId = ord.paymentId || ord.razorpayPaymentId || ord.cashfreePaymentId || ord.cfPaymentId || ord.paymentDetails?.razorpayPaymentId || ord.paymentDetails?.paymentId;
 
                   return (
                     <div
@@ -821,7 +837,7 @@ const OrderDetails = () => {
               {activeOrder ? (
                 (() => {
                   const activeStBadge = getOrderStatusBadge(activeOrder.orderStatus || activeOrder.status);
-                  const activePayId = activeOrder.paymentId || activeOrder.cashfreePaymentId || activeOrder.cfPaymentId || activeOrder.paymentDetails?.paymentId;
+                  const activePayId = activeOrder.paymentId || activeOrder.razorpayPaymentId || activeOrder.cashfreePaymentId || activeOrder.cfPaymentId || activeOrder.paymentDetails?.razorpayPaymentId || activeOrder.paymentDetails?.paymentId;
                   const normStatus = String(activeOrder.orderStatus || activeOrder.status || "confirmed").toLowerCase();
                   const isCancelled = normStatus.includes("cancel");
 
@@ -906,16 +922,16 @@ const OrderDetails = () => {
                                 UTR: {activeOrder.bankReference}
                               </span>
                             )}
-                            {String(activeOrder.paymentStatus).toLowerCase() !== "paid" && (activeOrder.cashfreeOrderId || String(activeOrder.paymentMethod || "").toLowerCase().includes("cashfree")) && (
+                            {String(activeOrder.paymentStatus).toLowerCase() !== "paid" && (activeOrder.razorpayOrderId || activeOrder.cashfreeOrderId || String(activeOrder.paymentMethod || "").toLowerCase().includes("razorpay") || String(activeOrder.paymentMethod || "").toLowerCase().includes("online") || String(activeOrder.paymentMethod || "").toLowerCase().includes("cashfree")) && (
                               <button
                                 type="button"
                                 disabled={verifyingPayment}
                                 onClick={() => handleReverifyOrder(activeOrder)}
                                 className="text-[11px] font-bold text-amber-300 bg-amber-950/70 hover:bg-amber-900 px-3 py-0.5 rounded-full border border-amber-500/50 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                                title="Check payment status with Cashfree"
+                                title="Check payment status with Razorpay"
                               >
                                 <RefreshCw size={11} className={verifyingPayment ? "animate-spin" : ""} />
-                                <span>{verifyingPayment ? "Checking Cashfree..." : "Verify Payment"}</span>
+                                <span>{verifyingPayment ? "Checking Razorpay..." : "Verify Payment"}</span>
                               </button>
                             )}
                           </div>

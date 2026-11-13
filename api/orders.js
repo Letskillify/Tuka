@@ -299,7 +299,7 @@ export default async function handler(req, res) {
     let paymentStatus = "Pending";
     let paymentId = paymentDetails?.razorpayPaymentId || null;
 
-    if (paymentMethod === "online") {
+    if (paymentMethod === "online" || paymentMethod === "razorpay") {
       const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET;
       const { razorpayPaymentId, razorpayOrderId, razorpaySignature } = paymentDetails || {};
 
@@ -313,55 +313,10 @@ export default async function handler(req, res) {
           return res.status(422).json({ error: "Payment verification failed: invalid signature." });
         }
         paymentStatus = "Paid";
+        paymentId = razorpayPaymentId;
       } else {
         paymentStatus = "Paid";
         paymentId = razorpayPaymentId || `TXN_${Date.now()}`;
-      }
-    } else if (paymentMethod === "cashfree") {
-      const appId = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
-      const secretKey = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
-      const rawEnv = process.env.CASHFREE_ENV || process.env.VITE_CASHFREE_ENV || "";
-      const isProd = rawEnv.toUpperCase() === "PRODUCTION" || (secretKey && secretKey.includes("_prod_"));
-      const { cashfreeOrderId } = paymentDetails || {};
-
-      if (appId && secretKey && !appId.startsWith("YOUR_") && cashfreeOrderId) {
-        try {
-          // cashfree-pg-sdk-nodejs v2 API
-          const { CFPaymentGateway, CFConfig, CFEnvironment } = await import("cashfree-pg-sdk-nodejs");
-          const cfEnvironment = isProd ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
-          const cfConfig = new CFConfig(cfEnvironment, "2023-08-01", appId, secretKey);
-          const gateway = new CFPaymentGateway();
-
-          const response = await gateway.getPaymentsForOrder(cfConfig, cashfreeOrderId);
-          const paymentList = Array.isArray(response?.cfPaymentsEntities)
-            ? response.cfPaymentsEntities
-            : Array.isArray(response?.cfPaymentsEntity)
-            ? response.cfPaymentsEntity
-            : Array.isArray(response?.data)
-            ? response.data
-            : Array.isArray(response)
-            ? response
-            : [];
-
-          const successfulPayment = paymentList.find(
-            p => p.paymentStatus === "SUCCESS" || p.payment_status === "SUCCESS"
-          );
-
-          if (successfulPayment) {
-            paymentStatus = "Paid";
-            paymentId = successfulPayment.cfPaymentId || successfulPayment.cf_payment_id || cashfreeOrderId;
-          } else if (paymentList.length > 0) {
-            return res.status(422).json({ error: "Payment not successful. Please try again." });
-          } else {
-            return res.status(422).json({ error: "No payment records found." });
-          }
-        } catch (e) {
-          return res.status(500).json({ error: "Cashfree verification failed: " + (e?.response?.data?.message || e.message) });
-        }
-      } else {
-        // Dev fallback
-        paymentStatus = "Paid";
-        paymentId = cashfreeOrderId || `CF_MOCK_${Date.now()}`;
       }
     } else {
       paymentStatus = "Pending";
@@ -420,7 +375,7 @@ export default async function handler(req, res) {
       tax,
       total: finalTotal,
       currency: "INR",
-      paymentMethod: paymentMethod === "cashfree" ? "Online Payment (Cashfree)" : (paymentMethod === "online" ? "Online Payment" : "Cash on Delivery (COD)"),
+      paymentMethod: (paymentMethod === "online" || paymentMethod === "razorpay") ? "Online Payment (Razorpay)" : "Cash on Delivery (COD)",
       paymentStatus,
       orderStatus: "confirmed",
       paymentId: paymentId ? String(paymentId) : null,

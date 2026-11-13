@@ -25,21 +25,20 @@ import {
   Check
 } from "lucide-react";
 
-// Safe dynamic Cashfree loader helper
-const loadCashfreeSDK = async (mode = "production") => {
-  try {
-    const cashfreeSdk = await import("@cashfreepayments/cashfree-js");
-    const loadFn = cashfreeSdk.load || cashfreeSdk.default?.load;
-    if (loadFn) {
-      return await loadFn({ mode });
+// Safe dynamic Razorpay loader helper
+const loadRazorpaySDK = () => {
+  return new Promise((resolve) => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      resolve(true);
+      return;
     }
-  } catch (e) {
-    console.warn("[Checkout] Cashfree SDK import warning:", e);
-  }
-  if (typeof window !== "undefined" && window.Cashfree) {
-    return new window.Cashfree({ mode });
-  }
-  throw new Error("Unable to load Cashfree Payment gateway. Please refresh or try Cash on Delivery.");
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 };
 
 const Checkout = () => {
@@ -288,9 +287,9 @@ const Checkout = () => {
       return;
     }
 
-    // Online Payment Flow via Cashfree /api/cashfree/create-order
+    // Online Payment Flow via Razorpay /api/razorpay/create-order
     try {
-      const initRes = await fetch("/api/cashfree/create-order", {
+      const initRes = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -323,77 +322,128 @@ const Checkout = () => {
             addressType: formData.addressType || "Home"
           },
           userId: user?.uid || null,
-          idempotencyKey,
-          returnUrl: `${window.location.origin}/orders?cf_order_id={order_id}`
+          idempotencyKey
         })
       });
 
-      let cData = {};
+      let rData = {};
       try {
-        cData = await initRes.json();
+        rData = await initRes.json();
       } catch (jsonErr) {
-        if (!initRes.ok) throw new Error(`Cashfree initialization returned server status ${initRes.status}.`);
+        if (!initRes.ok) throw new Error(`Razorpay initialization returned server status ${initRes.status}.`);
       }
 
       if (!initRes.ok) {
-        throw new Error(cData.error || "Could not initialize online payment.");
+        throw new Error(rData.error || "Could not initialize online payment.");
       }
+
+      const effectiveRzpId = rData.razorpayOrderId || rData.order_id;
 
       // Persist pending order identifier and device-bound token locally
       try {
         localStorage.setItem("tuka_pending_checkout", JSON.stringify({
-          cashfreeOrderId: cData.order_id,
-          orderId: cData.internal_order_id,
-          orderNumber: cData.order_number,
+          razorpayOrderId: effectiveRzpId,
+          orderId: rData.internal_order_id,
+          orderNumber: rData.order_number,
           email: formData.email
         }));
         localStorage.setItem("tuka_pending_email", formData.email);
-        const ordNum = (cData.order_number || "").toUpperCase();
+        const ordNum = (rData.order_number || "").toUpperCase();
         if (ordNum) {
           sessionStorage.setItem("tuka_single_view_token_" + ordNum, "allowed");
           sessionStorage.setItem("tuka_purchased_device_sig_" + ordNum, "active");
           localStorage.setItem("tuka_purchased_device_sig_" + ordNum, "active");
         }
-        if (cData.order_id) {
-          sessionStorage.setItem("tuka_single_view_token_" + cData.order_id, "allowed");
-          sessionStorage.setItem("tuka_purchased_device_sig_" + cData.order_id, "active");
-          localStorage.setItem("tuka_purchased_device_sig_" + cData.order_id, "active");
+        if (effectiveRzpId) {
+          sessionStorage.setItem("tuka_single_view_token_" + effectiveRzpId, "allowed");
+          sessionStorage.setItem("tuka_purchased_device_sig_" + effectiveRzpId, "active");
+          localStorage.setItem("tuka_purchased_device_sig_" + effectiveRzpId, "active");
         }
       } catch (e) {}
 
-      // Check for dev mode fallback
-      if (typeof cData.payment_session_id === "string" && cData.payment_session_id.includes("_mock_")) {
-        await submitOrderToBackend("cashfree", {
-          cashfreeOrderId: cData.order_id
+      // Check for dev mode mock fallback
+      if (typeof effectiveRzpId === "string" && effectiveRzpId.includes("_mock_")) {
+        await submitOrderToBackend("online", {
+          razorpayOrderId: effectiveRzpId,
+          razorpayPaymentId: `pay_mock_${Date.now()}`
         });
         return;
       }
 
-      const mode = cData.env_mode || import.meta.env.VITE_CASHFREE_ENV || "production";
-      const cashfree = await loadCashfreeSDK(mode);
+      const isLoaded = await loadRazorpaySDK();
+      if (!isLoaded || !window.Razorpay) {
+        throw new Error("Unable to load Razorpay Payment gateway. Please refresh or try Cash on Delivery.");
+      }
 
-      const checkoutOptions = {
-        paymentSessionId: cData.payment_session_id,
-        redirectTarget: "_self"
-      };
+      const razorpayKey = rData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TzHgCF9oJKx3j4";
 
-      cashfree.checkout(checkoutOptions).then(async (result) => {
-        if (result.error) {
-          if (result.error.code !== "window_closed" && !result.error.message?.includes("cancelled")) {
-            navigate("/order-failed", { state: { error: result.error.message || "Payment attempt failed." } });
-          } else {
-            setErrorMessage(result.error.message || "Payment was cancelled.");
+      const options = {
+        key: razorpayKey,
+        amount: rData.amount,
+        currency: rData.currency || "INR",
+        name: "House of Tuka",
+        description: "Handloom Heritage Acquisition",
+        image: "/img/logo.svg",
+        order_id: effectiveRzpId,
+        prefill: {
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone
+        },
+        notes: {
+          orderNumber: rData.order_number,
+          internalOrderId: rData.internal_order_id
+        },
+        theme: {
+          color: "#b13896"
+        },
+        modal: {
+          ondismiss: function () {
             setLoading(false);
           }
-          return;
-        }
+        },
+        handler: async function (response) {
+          try {
+            setLoading(true);
+            const verifyRes = await fetch("/api/razorpay/verify-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: rData.internal_order_id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              })
+            });
 
-        // Seamless redirection to orders page for verification and status display
-        navigate(`/orders?cf_order_id=${encodeURIComponent(cData.order_id)}`);
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok && verifyData.success) {
+              await clearCart();
+              navigate(`/orders?orderNumber=${encodeURIComponent(rData.order_number)}&payment=success`, {
+                state: { order: verifyData.order, orderId: rData.internal_order_id, orderNumber: rData.order_number }
+              });
+            } else {
+              navigate(`/orders?order_id=${encodeURIComponent(response.razorpay_order_id)}&orderNumber=${encodeURIComponent(rData.order_number)}`);
+            }
+          } catch (verifyErr) {
+            console.error("[Checkout] Razorpay verification call error:", verifyErr);
+            navigate(`/orders?order_id=${encodeURIComponent(response.razorpay_order_id)}&orderNumber=${encodeURIComponent(rData.order_number)}`);
+          } finally {
+            setLoading(false);
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", function (failResponse) {
+        console.error("[Checkout] Razorpay payment failure:", failResponse.error);
+        setErrorMessage(failResponse.error?.description || "Payment attempt failed. Please try again.");
+        setLoading(false);
       });
+      rzp.open();
 
     } catch (err) {
-      console.error("[Checkout] Cashfree setup error:", err);
+      console.error("[Checkout] Razorpay setup error:", err);
       setErrorMessage(err.message || "Failed to initialize payment gateway.");
       setLoading(false);
     }

@@ -95,27 +95,27 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
   const [isSavingTracking, setIsSavingTracking] = useState(false);
   const [isBookingIThink, setIsBookingIThink] = useState(false);
 
-  // Cashfree Payment Sync state
+  // Razorpay Payment Sync state
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncRefInput, setSyncRefInput] = useState("");
   const [syncAmountInput, setSyncAmountInput] = useState("1.00");
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const handleSyncCashfreePayment = async (e) => {
+  const handleSyncRazorpayPayment = async (e) => {
     e.preventDefault();
     const pid = syncRefInput.trim();
     if (!pid) return;
 
     setIsSyncing(true);
     try {
-      const res = await fetch("/api/cashfree/verify-order", {
+      const res = await fetch("/api/razorpay/verify-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "claim-payment",
           paymentId: pid,
           claimAmount: Number(syncAmountInput) || 1,
-          customerName: "Patron (Cashfree Online)",
+          customerName: "Patron (Razorpay Online)",
           customerPhone: "9999999999"
         })
       });
@@ -128,7 +128,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         setToastMessage(data.error || "Failed to sync payment.");
       }
     } catch (err) {
-      setToastMessage("Error communicating with Cashfree verify endpoint.");
+      setToastMessage("Error communicating with Razorpay verify endpoint.");
     } finally {
       setIsSyncing(false);
     }
@@ -248,22 +248,22 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
     }
   };
 
-  // ─── Re-verify Cashfree Payment Live with Cashfree API ───────────────────
-  const handleAdminVerifyCashfree = async (order) => {
+  // ─── Re-verify Razorpay Payment Live with Razorpay API ───────────────────
+  const handleAdminVerifyRazorpay = async (order) => {
     if (!order) return;
-    const targetId = order.cashfreeOrderId || order.id || order.orderNumber;
+    const targetId = order.razorpayOrderId || order.cashfreeOrderId || order.id || order.orderNumber;
     setUpdatingId(order.id);
     try {
-      showToast(`Querying Cashfree for order ${order.orderNumber || targetId}...`);
-      const res = await fetch(`/api/cashfree/verify-order?orderId=${encodeURIComponent(targetId)}`);
+      showToast(`Querying Razorpay for order ${order.orderNumber || targetId}...`);
+      const res = await fetch(`/api/razorpay/verify-order?orderId=${encodeURIComponent(targetId)}`);
       const data = await res.json();
       if (res.ok && data.success && data.paymentStatus === "PAID") {
         showToast(`Payment verified as PAID! (Ref: ${data.paymentId || targetId})`);
       } else {
-        showToast(data.error || data.message || "Payment status is still Pending on Cashfree.");
+        showToast(data.error || data.message || "Payment status is still Pending on Razorpay.");
       }
     } catch (err) {
-      showToast("Error communicating with Cashfree verify endpoint.");
+      showToast("Error communicating with Razorpay verify endpoint.");
     } finally {
       setUpdatingId(null);
     }
@@ -407,7 +407,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         const phone = String(o.customerPhone || o.shippingAddress?.phone || "").toLowerCase();
         const city = String(o.shippingAddress?.city || "").toLowerCase();
         const tracking = String(o.trackingNumber || o.awbNumber || "").toLowerCase();
-        const paymentId = String(o.paymentId || o.cashfreePaymentId || o.cfPaymentId || o.paymentDetails?.paymentId || "").toLowerCase();
+        const paymentId = String(o.paymentId || o.razorpayPaymentId || o.cashfreePaymentId || o.cfPaymentId || o.paymentDetails?.razorpayPaymentId || o.paymentDetails?.paymentId || "").toLowerCase();
         return num.includes(q) || name.includes(q) || email.includes(q) || phone.includes(q) || city.includes(q) || tracking.includes(q) || paymentId.includes(q);
       });
     }
@@ -559,10 +559,10 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
               <button
                 onClick={() => setShowSyncModal(true)}
                 className="px-4 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#b13896] border border-purple-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-                title="Sync unlinked or external Cashfree payment ID"
+                title="Sync unlinked or external Razorpay payment ID"
               >
                 <CreditCard size={14} />
-                <span>Sync Cashfree Ref</span>
+                <span>Sync Razorpay Ref</span>
               </button>
 
               <button
@@ -768,7 +768,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                           {order.paymentMethod || "Online"}
                         </span>
                         {(() => {
-                          const payId = order.paymentId || order.cashfreePaymentId || order.cfPaymentId || order.paymentDetails?.paymentId;
+                          const payId = order.paymentId || order.razorpayPaymentId || order.cashfreePaymentId || order.cfPaymentId || order.paymentDetails?.razorpayPaymentId || order.paymentDetails?.paymentId;
                           if (!payId) return null;
                           return (
                             <button
@@ -809,13 +809,13 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                           <option value="Refunded">Refunded</option>
                         </select>
                         <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
-                        {String(order.paymentStatus).toLowerCase() !== "paid" && order.cashfreeOrderId && (
+                        {String(order.paymentStatus).toLowerCase() !== "paid" && (order.razorpayOrderId || order.cashfreeOrderId || String(order.paymentMethod || "").toLowerCase().includes("online") || String(order.paymentMethod || "").toLowerCase().includes("razorpay")) && (
                           <button
                             type="button"
-                            onClick={() => handleAdminVerifyCashfree(order)}
+                            onClick={() => handleAdminVerifyRazorpay(order)}
                             disabled={isUpdating}
                             className="ml-1.5 p-1 text-[10px] text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-md border border-amber-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                            title="Verify live payment status with Cashfree"
+                            title="Verify live payment status with Razorpay"
                           >
                             <RefreshCw size={11} className={isUpdating ? "animate-spin" : ""} />
                             <span>Verify</span>
@@ -1300,7 +1300,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                       <div className="flex justify-between items-center">
                         <span>Payment ID:</span>
                         {(() => {
-                          const payId = selectedOrder.paymentId || selectedOrder.cashfreePaymentId || selectedOrder.cfPaymentId || selectedOrder.paymentDetails?.paymentId;
+                          const payId = selectedOrder.paymentId || selectedOrder.razorpayPaymentId || selectedOrder.cashfreePaymentId || selectedOrder.cfPaymentId || selectedOrder.paymentDetails?.razorpayPaymentId || selectedOrder.paymentDetails?.paymentId;
                           if (!payId) return <span className="font-mono text-[11px] text-slate-400">N/A</span>;
                           return (
                             <button
@@ -1404,7 +1404,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         )}
       </AnimatePresence>
 
-      {/* ─── Cashfree Payment Sync Modal ─── */}
+      {/* ─── Razorpay Payment Sync Modal ─── */}
       <AnimatePresence>
         {showSyncModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1417,7 +1417,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
               <div className="flex items-center justify-between border-b pb-3">
                 <div className="flex items-center gap-2 text-slate-900 font-serif font-bold text-lg">
                   <CreditCard size={20} className="text-[#b13896]" />
-                  <span>Sync Cashfree Payment</span>
+                  <span>Sync Razorpay Payment</span>
                 </div>
                 <button
                   onClick={() => setShowSyncModal(false)}
@@ -1428,18 +1428,18 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
               </div>
 
               <p className="text-xs text-slate-500 leading-relaxed">
-                If a customer completed payment on Cashfree (e.g. Ref ID: <code className="font-mono text-[#b13896] bg-purple-50 px-1 py-0.5 rounded">688991276</code>), enter the reference ID below to immediately link or record the order into the admin database.
+                If a customer completed payment on Razorpay (e.g. Payment ID: <code className="font-mono text-[#b13896] bg-purple-50 px-1 py-0.5 rounded">pay_xyz123</code> or Ref ID), enter the ID below to immediately link or record the order into the admin database.
               </p>
 
-              <form onSubmit={handleSyncCashfreePayment} className="space-y-4">
+              <form onSubmit={handleSyncRazorpayPayment} className="space-y-4">
                 <div>
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-                    Cashfree Ref ID / Payment ID *
+                    Razorpay Ref ID / Payment ID *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. 688991276"
+                    placeholder="e.g. pay_xyz123 or order_abc456"
                     value={syncRefInput}
                     onChange={(e) => setSyncRefInput(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-[#b13896]"
