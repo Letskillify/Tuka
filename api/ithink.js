@@ -251,7 +251,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: err.message || "Failed to fetch tracking data." });
     }
   }
-  }
 
   // 3. CREATE SHIPMENT
   if (action === "create-shipment") {
@@ -367,4 +366,5 @@ export default async function handler(req, res) {
   }
 
   return res.status(404).json({ error: `Unknown logistics action: ${action}` });
+}
 

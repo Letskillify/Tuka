@@ -269,7 +269,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
 
     try {
       // 2. Call iThink API to create shipment with custom dimensions
-      const res = await fetch("/api/ithink/create-shipment", {
+      const res = await fetch("/api/ithink?action=create-shipment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -289,9 +289,19 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         })
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch (parseErr) {
+        throw new Error(
+          rawText.includes("A server error")
+            ? "Server error executing iThink logistics handler. Please check your configuration."
+            : (rawText.slice(0, 150) || "Invalid response format from server.")
+        );
+      }
 
-      if (data.success && data.waybill) {
+      if (res.ok && data.success && data.waybill) {
         // Success: courier assigned and AWB generated!
         const awbUpdates = {
           ...baseUpdates,
@@ -325,11 +335,11 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         setShowPackModal(false);
         setOrderToPack(null);
       } else {
-        // iThink error or insufficient wallet balance
-        const errMsg = data.error || "iThink could not generate AWB automatically.";
+        // Shipment could not be created by iThink (e.g. Insufficient wallet balance, unserviceable pincode, etc.)
+        const errMsg = data.error || data.message || "Courier assignment pending in iThink Logistics dashboard.";
         const isWalletErr = errMsg.toLowerCase().includes("wallet") || errMsg.toLowerCase().includes("balance");
 
-        // Still save "packed" status and custom package specs in Firestore
+        // Save "packed" status and custom package specs in Firestore so admin work isn't lost
         const failUpdates = {
           ...baseUpdates,
           shippingStatus: "Pending Courier Assignment",
@@ -357,7 +367,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
           isWallet: isWalletErr
         });
 
-        showToast(`Order packed. iThink notice: ${errMsg}`);
+        showToast(isWalletErr ? "iThink Notice: Insufficient wallet balance!" : `iThink Notice: ${errMsg}`);
       }
     } catch (err) {
       console.error("[OrdersTable] Pack & Book error:", err);
@@ -365,6 +375,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
         type: "error",
         message: err.message || "Failed to communicate with iThink logistics endpoint."
       });
+      showToast(`Booking error: ${err.message}`);
     } finally {
       setIsSubmittingPack(false);
     }
@@ -1731,27 +1742,34 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
 
               {/* Notice Banner */}
               {packModalNotice && (
-                <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 ${
-                  packModalNotice.type === "error"
-                    ? "bg-rose-50 border-rose-200 text-rose-800"
-                    : "bg-amber-50 border-amber-200 text-amber-900"
+                <div className={`p-4 rounded-2xl border-2 text-xs flex items-start gap-3 ${
+                  packModalNotice.type === "error" || packModalNotice.isWallet
+                    ? "bg-rose-50/90 border-rose-300 text-rose-950"
+                    : "bg-amber-50/90 border-amber-300 text-amber-950"
                 }`}>
-                  <AlertCircle size={16} className={`shrink-0 mt-0.5 ${packModalNotice.type === "error" ? "text-rose-600" : "text-amber-600"}`} />
-                  <div className="space-y-1">
-                    <p className="font-bold">
-                      {packModalNotice.isWallet ? "iThink Wallet Recharge Required" : "Logistics Notice"}
+                  <AlertCircle size={18} className={`shrink-0 mt-0.5 ${packModalNotice.type === "error" || packModalNotice.isWallet ? "text-rose-600" : "text-amber-600"}`} />
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-sm">
+                      {packModalNotice.isWallet ? "Shipment Not Created: Insufficient Wallet Balance" : (packModalNotice.type === "error" ? "Booking Error" : "iThink Logistics Notice")}
                     </p>
-                    <p className="text-[11px] leading-relaxed">{packModalNotice.message}</p>
+                    <p className="text-xs leading-relaxed font-medium">
+                      {packModalNotice.isWallet
+                        ? `iThink rejected shipment creation because your account wallet has ₹0 balance (${packModalNotice.message}). Please recharge your wallet to enable automatic courier AWB booking.`
+                        : packModalNotice.message}
+                    </p>
                     {packModalNotice.isWallet && (
-                      <a
-                        href="https://my.ithinklogistics.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#b13896] hover:underline pt-1"
-                      >
-                        <span>Recharge Wallet at my.ithinklogistics.com</span>
-                        <ExternalLink size={12} />
-                      </a>
+                      <div className="pt-1.5 flex flex-wrap items-center gap-2">
+                        <a
+                          href="https://my.ithinklogistics.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-[11px] shadow-sm transition-colors cursor-pointer"
+                        >
+                          <span>Recharge Wallet at my.ithinklogistics.com</span>
+                          <ExternalLink size={12} />
+                        </a>
+                        <span className="text-[11px] text-rose-700 font-semibold">After recharging, click "Retry Booking Shipment" below.</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1903,7 +1921,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                       className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                     >
                       {isSubmittingPack ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
-                      <span>Pack &amp; Book Shipment</span>
+                      <span>{packModalNotice ? "Retry Booking Shipment" : "Pack & Book Shipment"}</span>
                     </button>
                   </div>
                 </div>

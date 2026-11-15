@@ -66,8 +66,8 @@ function apiDevServerPlugin() {
           } else if (pathname === '/api/cloudinary/delete') {
             const module = await server.ssrLoadModule('/api/cloudinary/delete.js');
             return await module.default(req, res);
-          } else if (pathname.startsWith('/api/ithink/') || pathname.startsWith('/api/delhivery/')) {
-            const action = pathname.split('/').pop();
+          } else if (pathname === '/api/ithink' || pathname.startsWith('/api/ithink/') || pathname === '/api/delhivery' || pathname.startsWith('/api/delhivery/')) {
+            const action = req.query.action || (pathname.includes('/api/ithink/') || pathname.includes('/api/delhivery/') ? pathname.split('/').pop() : req.query.action);
             req.query.action = action;
             const module = await server.ssrLoadModule('/api/ithink.js');
             return await module.default(req, res);
