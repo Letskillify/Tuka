@@ -45,10 +45,34 @@ const getConfig = () => {
 };
 
 /**
- * Format Date to DD-MM-YYYY as required by iThink Logistics API
+ * Format Date to DD-MM-YYYY as required by iThink Logistics API.
+ * Safely parses Date, Firestore Timestamp, Unix timestamp, or ISO string.
+ * Defaults to current Date (e.g. when packed).
  */
 const formatDate = (dateInput) => {
-  const d = dateInput ? new Date(dateInput) : new Date();
+  let d;
+  if (!dateInput) {
+    d = new Date();
+  } else if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+    d = dateInput;
+  } else if (typeof dateInput?.toDate === "function") {
+    d = dateInput.toDate();
+  } else if (typeof dateInput === "object" && typeof dateInput.seconds === "number") {
+    d = new Date(dateInput.seconds * 1000);
+  } else if (typeof dateInput === "object" && typeof dateInput._seconds === "number") {
+    d = new Date(dateInput._seconds * 1000);
+  } else if (typeof dateInput === "number") {
+    d = new Date(dateInput < 10000000000 ? dateInput * 1000 : dateInput);
+  } else if (typeof dateInput === "string") {
+    d = new Date(dateInput);
+  } else {
+    d = new Date();
+  }
+
+  if (!d || isNaN(d.getTime())) {
+    d = new Date();
+  }
+
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
@@ -133,7 +157,7 @@ export async function createOrderShipment(order) {
             waybill: "",
             order: orderNumber,
             sub_order: "",
-            order_date: formatDate(order.createdAt),
+            order_date: formatDate(order.packedAt || order.packedDate || new Date()),
             total_amount: totalAmount,
             name: customerName,
             company_name: "",

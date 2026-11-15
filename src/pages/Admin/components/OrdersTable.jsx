@@ -67,8 +67,21 @@ export const getPaymentStatusBadge = (rawStatus) => {
 
 const formatDate = (val) => {
   if (!val) return "Recent";
-  const date = val?.seconds ? new Date(val.seconds * 1000) : new Date(val);
-  if (Number.isNaN(date.getTime())) return "Recent";
+  let date;
+  if (val instanceof Date) {
+    date = val;
+  } else if (typeof val?.toDate === "function") {
+    date = val.toDate();
+  } else if (typeof val === "object" && typeof val.seconds === "number") {
+    date = new Date(val.seconds * 1000);
+  } else if (typeof val === "object" && typeof val._seconds === "number") {
+    date = new Date(val._seconds * 1000);
+  } else if (typeof val === "number") {
+    date = new Date(val < 10000000000 ? val * 1000 : val);
+  } else {
+    date = new Date(val);
+  }
+  if (!date || Number.isNaN(date.getTime())) return "Recent";
   return date.toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -255,10 +268,13 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
     const finalWidthStr = Math.round(wthNum).toString();
     const finalHeightStr = Math.round(hNum).toString();
 
-    // 1. Prepare base update for Firestore: mark as "packed" with package specs
+    const currentPackedTime = new Date().toISOString();
+    // 1. Prepare base update for Firestore: mark as "packed" with package specs and packed date
     const baseUpdates = {
       orderStatus: "packed",
       status: "Packed",
+      packedAt: currentPackedTime,
+      packedDate: currentPackedTime,
       packageWeight: finalWeightStr,
       packageLength: finalLengthStr,
       packageWidth: finalWidthStr,
@@ -385,11 +401,14 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
   const handleMarkPackedOnly = async () => {
     if (!orderToPack) return;
     setIsSubmittingPack(true);
+    const currentPackedTime = new Date().toISOString();
     try {
       const orderRef = doc(db, "orders", orderToPack.id);
       const updateData = {
         orderStatus: "packed",
         status: "Packed",
+        packedAt: currentPackedTime,
+        packedDate: currentPackedTime,
         packageWeight: parcelWeight,
         packageLength: parcelLength,
         packageWidth: parcelWidth,
@@ -1737,6 +1756,12 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                 </div>
                 <div className="text-slate-500 text-[11px]">
                   <strong>Contents:</strong> {(orderToPack.items || []).map((it) => `${it.quantity || 1}x ${it.productName || it.name || "Handloom Saree"}`).join(", ") || "1x Bengal Handloom Saree"}
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                  <span>Ordered: <strong className="text-slate-700">{formatDate(orderToPack.createdAt)}</strong></span>
+                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Packing Date: Today ({new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })})
+                  </span>
                 </div>
               </div>
 

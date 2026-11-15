@@ -288,6 +288,10 @@ export default async function handler(req, res) {
       if (packageWidth) orderData.packageWidth = packageWidth;
       if (packageHeight) orderData.packageHeight = packageHeight;
 
+      const currentPackedIso = new Date().toISOString();
+      if (!orderData.packedAt) orderData.packedAt = currentPackedIso;
+      if (!orderData.packedDate) orderData.packedDate = currentPackedIso;
+
       const result = await createOrderShipment(orderData);
 
       if (targetDocId) {
@@ -300,7 +304,9 @@ export default async function handler(req, res) {
             packageHeight: orderData.packageHeight || null,
             orderStatus: "packed",
             status: "Packed",
-            updatedAt: new Date().toISOString()
+            packedAt: orderData.packedAt || currentPackedIso,
+            packedDate: orderData.packedDate || currentPackedIso,
+            updatedAt: currentPackedIso
           };
 
           if (result.success && result.waybill) {
