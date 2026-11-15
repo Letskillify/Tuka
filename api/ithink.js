@@ -260,7 +260,14 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { orderId, order: directOrder } = bodyParams;
+      const {
+        orderId,
+        order: directOrder,
+        packageWeight,
+        packageLength,
+        packageWidth,
+        packageHeight
+      } = bodyParams;
       let orderData = directOrder;
       let targetDocId = orderId;
 
@@ -277,12 +284,23 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Order ID or order details are required." });
       }
 
+      if (packageWeight) orderData.packageWeight = packageWeight;
+      if (packageLength) orderData.packageLength = packageLength;
+      if (packageWidth) orderData.packageWidth = packageWidth;
+      if (packageHeight) orderData.packageHeight = packageHeight;
+
       const result = await createOrderShipment(orderData);
 
       if (targetDocId) {
         try {
           const updatePayload = {
             shippingProvider: "iThink Logistics",
+            packageWeight: orderData.packageWeight || null,
+            packageLength: orderData.packageLength || null,
+            packageWidth: orderData.packageWidth || null,
+            packageHeight: orderData.packageHeight || null,
+            orderStatus: "packed",
+            status: "Packed",
             updatedAt: new Date().toISOString()
           };
 
@@ -291,7 +309,6 @@ export default async function handler(req, res) {
             updatePayload.trackingNumber = result.waybill;
             updatePayload.courierName = result.logisticName || "iThink Express Courier";
             updatePayload.trackingUrl = result.trackingUrl;
-            updatePayload.orderStatus = "shipped";
             updatePayload.shippingStatus = "Manifested";
             updatePayload.ithinkShipment = {
               waybill: result.waybill,
@@ -350,4 +367,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(404).json({ error: `Unknown logistics action: ${action}` });
-}
+

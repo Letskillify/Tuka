@@ -82,9 +82,13 @@ export async function createOrderShipment(order) {
     const customerPhone = sanitizePhone(order.customerPhone || addr.phone);
     const customerEmail = String(order.customerEmail || "customer@tuka.co.in").trim();
 
-    // Calculate weight: ~0.50kg per saree/piece, min 0.5kg
+    // Calculate weight & dimensions: allow custom override from admin pack form or default
     const totalItemsQty = items.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
-    const calculatedWeight = Math.min(150, Math.max(0.5, totalItemsQty * 0.5)).toFixed(2);
+    const defaultWeight = Math.min(150, Math.max(0.5, totalItemsQty * 0.5)).toFixed(2);
+    const finalWeight = String(Math.max(0.1, Number(order.packageWeight || order.weight || defaultWeight)).toFixed(2));
+    const finalLength = String(Math.max(1, Math.round(Number(order.packageLength || order.length || 25))));
+    const finalWidth = String(Math.max(1, Math.round(Number(order.packageWidth || order.width || 20))));
+    const finalHeight = String(Math.max(1, Math.round(Number(order.packageHeight || order.height || 5))));
 
     const totalAmount = Number(order.total || 0).toFixed(2);
     const isCod = (order.paymentMethod || "").toLowerCase().includes("cod") || order.paymentMethod === "Cash on Delivery (COD)";
@@ -157,10 +161,10 @@ export async function createOrderShipment(order) {
             billing_alt_phone: sanitizePhone(addr.altPhone || ""),
             billing_email: customerEmail,
             products: mappedProducts,
-            shipment_length: "25",
-            shipment_width: "20",
-            shipment_height: "5",
-            weight: String(calculatedWeight),
+            shipment_length: finalLength,
+            shipment_width: finalWidth,
+            shipment_height: finalHeight,
+            weight: finalWeight,
             shipping_charges: "0",
             giftwrap_charges: "0",
             transaction_charges: "0",

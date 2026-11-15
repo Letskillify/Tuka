@@ -16,7 +16,6 @@ import {
 
 import { sendOrderEmails } from "../_lib/emailService.js";
 import { deductOrderInventory } from "../_lib/inventoryService.js";
-import { createOrderShipment } from "../_lib/ithinkLogistics.js";
 
 const generateOrderNumber = () => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -429,27 +428,6 @@ export default async function handler(req, res) {
           console.log(`[VerifyOrder] Confirmation email sent and logged successfully for order ${orderDocId}.`);
         } catch (emailErr) {
           console.error(`[VerifyOrder] Failed to send order confirmation email for order ${orderDocId}:`, emailErr);
-        }
-      }
-
-      // D. Dispatch Courier Manifest (iThink Logistics)
-      if (!currentOrderSnapshot.awbCode) {
-        try {
-          const shipRes = await createOrderShipment(currentOrderSnapshot);
-          if (shipRes?.success && shipRes.waybill) {
-            const shipUpdates = {
-              shippingProvider: "iThink Logistics",
-              shippingStatus: "Manifested",
-              awbCode: shipRes.waybill,
-              trackingNumber: shipRes.waybill,
-              courierName: shipRes.logisticName || "iThink Express",
-              trackingUrl: shipRes.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(shipRes.waybill)}`
-            };
-            await updateDoc(doc(db, "orders", orderDocId), shipUpdates);
-            Object.assign(currentOrderSnapshot, shipUpdates);
-          }
-        } catch (shipErr) {
-          console.warn("[VerifyOrder] iThink dispatch pending notice:", shipErr.message);
         }
       }
 

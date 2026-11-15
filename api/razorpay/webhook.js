@@ -15,7 +15,6 @@ import {
 
 import { sendOrderEmails } from "../_lib/emailService.js";
 import { deductOrderInventory } from "../_lib/inventoryService.js";
-import { createOrderShipment } from "../_lib/ithinkLogistics.js";
 
 /**
  * Razorpay Server-to-Server Webhook Handler
@@ -208,25 +207,6 @@ export default async function handler(req, res) {
         });
       } catch (emailErr) {
         console.error(`[RazorpayWebhook] Email dispatch failed for order ${orderDocId}:`, emailErr);
-      }
-    }
-
-    // ── 6. DISPATCH COURIER MANIFEST ──
-    if (!orderData.awbCode) {
-      try {
-        const shipRes = await createOrderShipment(currentOrderSnapshot);
-        if (shipRes?.success && shipRes.waybill) {
-          await updateDoc(doc(db, "orders", orderDocId), {
-            shippingProvider: "iThink Logistics",
-            shippingStatus: "Manifested",
-            awbCode: shipRes.waybill,
-            trackingNumber: shipRes.waybill,
-            courierName: shipRes.logisticName || "iThink Express",
-            trackingUrl: shipRes.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(shipRes.waybill)}`
-          });
-        }
-      } catch (shipErr) {
-        console.warn("[RazorpayWebhook] iThink shipment creation pending:", shipErr.message);
       }
     }
 

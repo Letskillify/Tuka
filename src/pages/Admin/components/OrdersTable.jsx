@@ -101,6 +101,16 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
   const [syncAmountInput, setSyncAmountInput] = useState("1.00");
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Pack & Book iThink Shipment Modal State
+  const [showPackModal, setShowPackModal] = useState(false);
+  const [orderToPack, setOrderToPack] = useState(null);
+  const [parcelWeight, setParcelWeight] = useState("0.50");
+  const [parcelLength, setParcelLength] = useState("25");
+  const [parcelWidth, setParcelWidth] = useState("20");
+  const [parcelHeight, setParcelHeight] = useState("5");
+  const [isSubmittingPack, setIsSubmittingPack] = useState(false);
+  const [packModalNotice, setPackModalNotice] = useState(null);
+
   const handleSyncRazorpayPayment = async (e) => {
     e.preventDefault();
     const pid = syncRefInput.trim();
@@ -142,58 +152,47 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
     setTrackingUrl(order.trackingUrl || "");
   };
 
-  const handleBookIThinkShipment = async (order) => {
-    if (!order) return;
-    setIsBookingIThink(true);
-    try {
-      const res = await fetch("/api/ithink/create-shipment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, order })
-      });
-      const data = await res.json();
-      if (data.success && data.waybill) {
-        setTrackingNumber(data.waybill);
-        setTrackingCourier(data.logisticName || "iThink Express Courier");
-        setTrackingUrl(data.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(data.waybill)}`);
-        setSelectedOrder((prev) => ({
-          ...prev,
-          awbCode: data.waybill,
-          trackingNumber: data.waybill,
-          courierName: data.logisticName || "iThink Express Courier",
-          shippingStatus: "Manifested",
-          iThinkNotice: null,
-          iThinkError: null
-        }));
-        showToast(`Dispatched via iThink Logistics! AWB: ${data.waybill}`);
-      } else {
-        const errMsg = data.error || "iThink booking notice: Awaiting manifest approval.";
-        setSelectedOrder((prev) => ({
-          ...prev,
-          iThinkNotice: errMsg,
-          iThinkError: errMsg
-        }));
-        showToast(`iThink Notice: ${errMsg}`);
-      }
-    } catch (e) {
-      showToast("Failed to book iThink shipment: " + e.message);
-    } finally {
-      setIsBookingIThink(false);
-    }
-  };
-
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Open the "Pack Order & Book iThink Shipment" modal with prefilled/customizable weight & dimensions
+  const handleInitiatePackAndBook = (order) => {
+    if (!order) return;
+    const itemsCount = (order.items || []).reduce((acc, it) => acc + Number(it.quantity || 1), 0) || 1;
+    // Estimated ~0.50 kg per piece/saree, minimum 0.50 kg
+    const estimatedWeight = order.packageWeight || (Math.max(0.5, itemsCount * 0.5)).toFixed(2);
+
+    setOrderToPack(order);
+    setParcelWeight(String(estimatedWeight));
+    setParcelLength(String(order.packageLength || "25"));
+    setParcelWidth(String(order.packageWidth || "20"));
+    setParcelHeight(String(order.packageHeight || "5"));
+    setPackModalNotice(null);
+    setShowPackModal(true);
+  };
+
+  const handleBookIThinkShipment = (order) => {
+    if (!order) return;
+    handleInitiatePackAndBook(order);
+  };
+
   // ─── Update Order Status ──────────────────────────────────────────────
   const handleUpdateOrderStatus = async (order, newStatus) => {
+    const normStatus = (newStatus || "").toLowerCase();
+
+    // If changing to "packed" and order has no AWB yet, prompt with custom weight & dimensions modal
+    if (normStatus === "packed" && !order.awbCode && !order.trackingNumber) {
+      handleInitiatePackAndBook(order);
+      return;
+    }
+
     setUpdatingId(order.id);
     try {
       const orderRef = doc(db, "orders", order.id);
       const updateData = {
-        orderStatus: newStatus.toLowerCase(),
+        orderStatus: normStatus,
         status: newStatus,
         updatedAt: serverTimestamp()
       };
@@ -214,38 +213,195 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
       if (selectedOrder && selectedOrder.id === order.id) {
         setSelectedOrder((prev) => ({
           ...prev,
-          orderStatus: newStatus.toLowerCase(),
+          orderStatus: normStatus,
           status: newStatus
         }));
       }
 
       showToast(`Order #${order.orderNumber || order.id.slice(0, 8)} status updated to ${newStatus}`);
-
-      // If status changed to "Packed" and order has no AWB yet, automatically attempt iThink courier booking
-      if (newStatus.toLowerCase() === "packed" && !order.awbCode && !order.trackingNumber) {
-        try {
-          const res = await fetch("/api/ithink/create-shipment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: order.id, order: { ...order, ...updateData } })
-          });
-          const sData = await res.json();
-          if (sData.success && sData.waybill) {
-            showToast(`Shipment registered in iThink! Assigned AWB: ${sData.waybill}`);
-          } else if (sData.error?.includes("wallet")) {
-            showToast(`iThink Notice: ${sData.error} (Recharge wallet at my.ithinklogistics.com)`);
-          } else if (sData.error) {
-            showToast(`iThink Notice: ${sData.error}`);
-          }
-        } catch (shipErr) {
-          console.warn("[OrdersTable] Auto-shipment dispatch error:", shipErr.message);
-        }
-      }
     } catch (err) {
       console.error("Error updating order status:", err);
       alert("Failed to update status. Please check permissions.");
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  // ─── Submit Pack Order & Book Shipment to iThink ───────────────────────
+  const handleSubmitPackAndBook = async (e) => {
+    if (e) e.preventDefault();
+    if (!orderToPack) return;
+
+    const wNum = parseFloat(parcelWeight);
+    const lNum = parseFloat(parcelLength);
+    const wthNum = parseFloat(parcelWidth);
+    const hNum = parseFloat(parcelHeight);
+
+    if (isNaN(wNum) || wNum <= 0) {
+      setPackModalNotice({ type: "error", message: "Please provide a valid package weight (e.g. 0.50 kg)." });
+      return;
+    }
+    if (isNaN(lNum) || lNum <= 0 || isNaN(wthNum) || wthNum <= 0 || isNaN(hNum) || hNum <= 0) {
+      setPackModalNotice({ type: "error", message: "Please provide valid package dimensions in cm (e.g. 25 × 20 × 5)." });
+      return;
+    }
+
+    setIsSubmittingPack(true);
+    setPackModalNotice(null);
+
+    const targetOrderId = orderToPack.id;
+    const finalWeightStr = wNum.toFixed(2);
+    const finalLengthStr = Math.round(lNum).toString();
+    const finalWidthStr = Math.round(wthNum).toString();
+    const finalHeightStr = Math.round(hNum).toString();
+
+    // 1. Prepare base update for Firestore: mark as "packed" with package specs
+    const baseUpdates = {
+      orderStatus: "packed",
+      status: "Packed",
+      packageWeight: finalWeightStr,
+      packageLength: finalLengthStr,
+      packageWidth: finalWidthStr,
+      packageHeight: finalHeightStr,
+      shippingProvider: "iThink Logistics",
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      // 2. Call iThink API to create shipment with custom dimensions
+      const res = await fetch("/api/ithink/create-shipment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: targetOrderId,
+          order: {
+            ...orderToPack,
+            ...baseUpdates,
+            packageWeight: finalWeightStr,
+            packageLength: finalLengthStr,
+            packageWidth: finalWidthStr,
+            packageHeight: finalHeightStr
+          },
+          packageWeight: finalWeightStr,
+          packageLength: finalLengthStr,
+          packageWidth: finalWidthStr,
+          packageHeight: finalHeightStr
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.waybill) {
+        // Success: courier assigned and AWB generated!
+        const awbUpdates = {
+          ...baseUpdates,
+          awbCode: data.waybill,
+          trackingNumber: data.waybill,
+          courierName: data.logisticName || "iThink Express Courier",
+          trackingUrl: data.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(data.waybill)}`,
+          shippingStatus: "Manifested",
+          iThinkNotice: null,
+          iThinkError: null
+        };
+
+        const orderRef = doc(db, "orders", targetOrderId);
+        await updateDoc(orderRef, awbUpdates);
+
+        if (orderToPack.userId) {
+          try {
+            const userOrderRef = doc(db, "users", orderToPack.userId, "orders", targetOrderId);
+            await updateDoc(userOrderRef, awbUpdates);
+          } catch (e) {}
+        }
+
+        if (selectedOrder && selectedOrder.id === targetOrderId) {
+          setSelectedOrder((prev) => ({ ...prev, ...awbUpdates }));
+          setTrackingNumber(data.waybill);
+          setTrackingCourier(data.logisticName || "iThink Express Courier");
+          setTrackingUrl(data.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(data.waybill)}`);
+        }
+
+        showToast(`Order packed & shipment booked with iThink! AWB: ${data.waybill}`);
+        setShowPackModal(false);
+        setOrderToPack(null);
+      } else {
+        // iThink error or insufficient wallet balance
+        const errMsg = data.error || "iThink could not generate AWB automatically.";
+        const isWalletErr = errMsg.toLowerCase().includes("wallet") || errMsg.toLowerCase().includes("balance");
+
+        // Still save "packed" status and custom package specs in Firestore
+        const failUpdates = {
+          ...baseUpdates,
+          shippingStatus: "Pending Courier Assignment",
+          iThinkNotice: errMsg,
+          iThinkError: errMsg
+        };
+
+        const orderRef = doc(db, "orders", targetOrderId);
+        await updateDoc(orderRef, failUpdates);
+
+        if (orderToPack.userId) {
+          try {
+            const userOrderRef = doc(db, "users", orderToPack.userId, "orders", targetOrderId);
+            await updateDoc(userOrderRef, failUpdates);
+          } catch (e) {}
+        }
+
+        if (selectedOrder && selectedOrder.id === targetOrderId) {
+          setSelectedOrder((prev) => ({ ...prev, ...failUpdates }));
+        }
+
+        setPackModalNotice({
+          type: "warning",
+          message: errMsg,
+          isWallet: isWalletErr
+        });
+
+        showToast(`Order packed. iThink notice: ${errMsg}`);
+      }
+    } catch (err) {
+      console.error("[OrdersTable] Pack & Book error:", err);
+      setPackModalNotice({
+        type: "error",
+        message: err.message || "Failed to communicate with iThink logistics endpoint."
+      });
+    } finally {
+      setIsSubmittingPack(false);
+    }
+  };
+
+  // Mark packed only without calling iThink API (fallback)
+  const handleMarkPackedOnly = async () => {
+    if (!orderToPack) return;
+    setIsSubmittingPack(true);
+    try {
+      const orderRef = doc(db, "orders", orderToPack.id);
+      const updateData = {
+        orderStatus: "packed",
+        status: "Packed",
+        packageWeight: parcelWeight,
+        packageLength: parcelLength,
+        packageWidth: parcelWidth,
+        packageHeight: parcelHeight,
+        updatedAt: serverTimestamp()
+      };
+      await updateDoc(orderRef, updateData);
+      if (orderToPack.userId) {
+        try {
+          const userOrderRef = doc(db, "users", orderToPack.userId, "orders", orderToPack.id);
+          await updateDoc(userOrderRef, updateData);
+        } catch (e) {}
+      }
+      if (selectedOrder && selectedOrder.id === orderToPack.id) {
+        setSelectedOrder((prev) => ({ ...prev, ...updateData }));
+      }
+      showToast(`Order #${orderToPack.orderNumber || orderToPack.id.slice(0, 8)} marked as Packed.`);
+      setShowPackModal(false);
+      setOrderToPack(null);
+    } catch (err) {
+      alert("Failed to mark as packed: " + err.message);
+    } finally {
+      setIsSubmittingPack(false);
     }
   };
 
@@ -1511,6 +1667,245 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                     {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                     <span>Sync &amp; Record</span>
                   </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Pack Order & Book iThink Shipment Modal ─── */}
+      <AnimatePresence>
+        {showPackModal && orderToPack && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b pb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                    <Package size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 font-serif">Pack Order &amp; Book Shipment</h3>
+                    <p className="text-[11px] text-slate-500">iThink Logistics Automated Courier Manifest</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPackModal(false);
+                    setOrderToPack(null);
+                    setPackModalNotice(null);
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Order Quick Context */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-slate-900">
+                    #{orderToPack.orderNumber || orderToPack.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  <span className="font-bold text-[#b13896]">
+                    ₹{Number(orderToPack.total || 0).toLocaleString()} • {orderToPack.paymentMethod || "Online"}
+                  </span>
+                </div>
+                <div className="text-slate-600 flex items-center gap-1.5 truncate">
+                  <User size={13} className="text-slate-400 shrink-0" />
+                  <span className="font-semibold text-slate-800">{orderToPack.customerName || orderToPack.shippingAddress?.fullName || "Customer"}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="truncate">{orderToPack.shippingAddress?.city || "Kolkata"}, {orderToPack.shippingAddress?.state || "WB"} ({orderToPack.shippingAddress?.pincode || "700001"})</span>
+                </div>
+                <div className="text-slate-500 text-[11px]">
+                  <strong>Contents:</strong> {(orderToPack.items || []).map((it) => `${it.quantity || 1}x ${it.productName || it.name || "Handloom Saree"}`).join(", ") || "1x Bengal Handloom Saree"}
+                </div>
+              </div>
+
+              {/* Notice Banner */}
+              {packModalNotice && (
+                <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 ${
+                  packModalNotice.type === "error"
+                    ? "bg-rose-50 border-rose-200 text-rose-800"
+                    : "bg-amber-50 border-amber-200 text-amber-900"
+                }`}>
+                  <AlertCircle size={16} className={`shrink-0 mt-0.5 ${packModalNotice.type === "error" ? "text-rose-600" : "text-amber-600"}`} />
+                  <div className="space-y-1">
+                    <p className="font-bold">
+                      {packModalNotice.isWallet ? "iThink Wallet Recharge Required" : "Logistics Notice"}
+                    </p>
+                    <p className="text-[11px] leading-relaxed">{packModalNotice.message}</p>
+                    {packModalNotice.isWallet && (
+                      <a
+                        href="https://my.ithinklogistics.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#b13896] hover:underline pt-1"
+                      >
+                        <span>Recharge Wallet at my.ithinklogistics.com</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSubmitPackAndBook} className="space-y-4">
+                {/* Custom Weight */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      Actual Package Weight (kg) *
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      Standard saree ~0.50 kg
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.05"
+                      max="100"
+                      required
+                      value={parcelWeight}
+                      onChange={(e) => setParcelWeight(e.target.value)}
+                      placeholder="0.50"
+                      className="w-full pl-3.5 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#b13896] focus:bg-white"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Custom Dimensions */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      Package Box Dimensions (cm) *
+                    </label>
+                    <span className="text-[10px] text-slate-400">Length × Width × Height</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        max="300"
+                        required
+                        value={parcelLength}
+                        onChange={(e) => setParcelLength(e.target.value)}
+                        placeholder="25"
+                        className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#b13896] focus:bg-white"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">L</span>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        max="300"
+                        required
+                        value={parcelWidth}
+                        onChange={(e) => setParcelWidth(e.target.value)}
+                        placeholder="20"
+                        className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#b13896] focus:bg-white"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">W</span>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        max="300"
+                        required
+                        value={parcelHeight}
+                        onChange={(e) => setParcelHeight(e.target.value)}
+                        placeholder="5"
+                        className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#b13896] focus:bg-white"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">H</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Volumetric Weight & Courier Slab Preview */}
+                {(() => {
+                  const l = parseFloat(parcelLength) || 0;
+                  const w = parseFloat(parcelWidth) || 0;
+                  const h = parseFloat(parcelHeight) || 0;
+                  const deadW = parseFloat(parcelWeight) || 0;
+                  const volW = (l * w * h) / 5000;
+                  const billableW = Math.max(deadW, volW);
+                  return (
+                    <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex items-center justify-between text-[11px]">
+                      <div>
+                        <span className="text-slate-500">Volumetric Weight: </span>
+                        <strong className="text-slate-700 font-mono">{volW.toFixed(2)} kg</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Courier Billable Slab: </span>
+                        <strong className="text-[#b13896] font-mono">{billableW.toFixed(2)} kg</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Pickup Origin Details */}
+                <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <MapPin size={13} className="text-[#b13896] shrink-0" />
+                  <span className="truncate">
+                    <strong>Pickup Hub:</strong> 2KA BOUTIQUE, Shop No 82, Poonam Parkview, Virar West, 401303
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t">
+                  <button
+                    type="button"
+                    onClick={handleMarkPackedOnly}
+                    disabled={isSubmittingPack}
+                    className="w-full sm:w-auto px-3.5 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl text-xs font-semibold cursor-pointer text-center"
+                    title="Mark order status as Packed without requesting iThink API"
+                  >
+                    Pack Only (Skip iThink)
+                  </button>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPackModal(false);
+                        setOrderToPack(null);
+                        setPackModalNotice(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingPack}
+                      className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-[#b13896] hover:bg-[#972d7f] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                    >
+                      {isSubmittingPack ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+                      <span>Pack &amp; Book Shipment</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             </motion.div>
