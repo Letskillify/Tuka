@@ -155,10 +155,25 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
       if (data.success && data.waybill) {
         setTrackingNumber(data.waybill);
         setTrackingCourier(data.logisticName || "iThink Express Courier");
-        setTrackingUrl(data.trackingUrl || `https://ithinklogistics.trackshipment.in/${data.waybill}`);
+        setTrackingUrl(data.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(data.waybill)}`);
+        setSelectedOrder((prev) => ({
+          ...prev,
+          awbCode: data.waybill,
+          trackingNumber: data.waybill,
+          courierName: data.logisticName || "iThink Express Courier",
+          shippingStatus: "Manifested",
+          iThinkNotice: null,
+          iThinkError: null
+        }));
         showToast(`Dispatched via iThink Logistics! AWB: ${data.waybill}`);
       } else {
-        showToast(data.error || "iThink booking notice: Awaiting manifest approval.");
+        const errMsg = data.error || "iThink booking notice: Awaiting manifest approval.";
+        setSelectedOrder((prev) => ({
+          ...prev,
+          iThinkNotice: errMsg,
+          iThinkError: errMsg
+        }));
+        showToast(`iThink Notice: ${errMsg}`);
       }
     } catch (e) {
       showToast("Failed to book iThink shipment: " + e.message);
@@ -205,6 +220,27 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
       }
 
       showToast(`Order #${order.orderNumber || order.id.slice(0, 8)} status updated to ${newStatus}`);
+
+      // If status changed to "Packed" and order has no AWB yet, automatically attempt iThink courier booking
+      if (newStatus.toLowerCase() === "packed" && !order.awbCode && !order.trackingNumber) {
+        try {
+          const res = await fetch("/api/ithink/create-shipment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: order.id, order: { ...order, ...updateData } })
+          });
+          const sData = await res.json();
+          if (sData.success && sData.waybill) {
+            showToast(`Shipment registered in iThink! Assigned AWB: ${sData.waybill}`);
+          } else if (sData.error?.includes("wallet")) {
+            showToast(`iThink Notice: ${sData.error} (Recharge wallet at my.ithinklogistics.com)`);
+          } else if (sData.error) {
+            showToast(`iThink Notice: ${sData.error}`);
+          }
+        } catch (shipErr) {
+          console.warn("[OrdersTable] Auto-shipment dispatch error:", shipErr.message);
+        }
+      }
     } catch (err) {
       console.error("Error updating order status:", err);
       alert("Failed to update status. Please check permissions.");
@@ -1206,10 +1242,10 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                                 if (lData?.data || lData?.file_url || lData?.pdf_url) {
                                   window.open(lData.data || lData.file_url || lData.pdf_url, '_blank');
                                 } else {
-                                  window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                                  window.open(`https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(code)}`, '_blank');
                                 }
                               } catch (e) {
-                                window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                                window.open(`https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(code)}`, '_blank');
                               }
                             }}
                             className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
@@ -1219,7 +1255,7 @@ const OrdersTable = ({ orders = [], isDarkMode = false }) => {
                           </button>
 
                           <a
-                            href={trackingUrl || `https://ithinklogistics.trackshipment.in/${trackingNumber || selectedOrder.awbCode}`}
+                            href={trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(trackingNumber || selectedOrder.awbCode)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"

@@ -64,7 +64,7 @@ export const generateCustomerEmailHtml = (order) => {
   const orderTarget = `/orders?orderNumber=${encodeURIComponent(orderNumber)}`;
   const viewOrderUrl = `${baseUrl}/login?email=${encodeURIComponent(customerEmail)}&redirect=${encodeURIComponent(orderTarget)}`;
   const orderUrl = viewOrderUrl;
-  const trackingUrl = order.trackingUrl || (order.awbCode ? `https://ithinklogistics.trackshipment.in/${encodeURIComponent(order.awbCode)}` : viewOrderUrl);
+  const trackingUrl = order.trackingUrl || (order.awbCode ? `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(order.awbCode)}` : viewOrderUrl);
 
   const items = Array.isArray(order.items) && order.items.length > 0 ? order.items : [
     {

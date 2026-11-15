@@ -502,11 +502,11 @@ const OrderDetails = () => {
 
   // iThink Logistics Tracking URL
   const getTrackingUrl = () => {
-    if (!activeOrder) return "https://ithinklogistics.trackshipment.in/";
+    if (!activeOrder) return "https://www.ithinklogistics.com/track-order";
     const awb = activeOrder.awbCode || activeOrder.trackingNumber || activeOrder.ithinkShipment?.waybill;
     if (activeOrder.trackingUrl) return activeOrder.trackingUrl;
-    if (awb) return `https://ithinklogistics.trackshipment.in/${encodeURIComponent(awb)}`;
-    return `https://ithinklogistics.trackshipment.in/`;
+    if (awb) return `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(awb)}`;
+    return `https://www.ithinklogistics.com/track-order`;
   };
 
   // Filtered orders list by search query (order number or product name)
@@ -1423,10 +1423,10 @@ const OrderDetails = () => {
                         if (lData?.data || lData?.file_url || lData?.pdf_url) {
                           window.open(lData.data || lData.file_url || lData.pdf_url, '_blank');
                         } else {
-                          window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                          window.open(`https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(code)}`, '_blank');
                         }
                       } catch (e) {
-                        window.open(`https://ithinklogistics.trackshipment.in/${code}`, '_blank');
+                        window.open(`https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(code)}`, '_blank');
                       }
                     }}
                     className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer"

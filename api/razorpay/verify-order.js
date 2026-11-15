@@ -443,7 +443,7 @@ export default async function handler(req, res) {
               awbCode: shipRes.waybill,
               trackingNumber: shipRes.waybill,
               courierName: shipRes.logisticName || "iThink Express",
-              trackingUrl: shipRes.trackingUrl || `https://ithinklogistics.trackshipment.in/${shipRes.waybill}`
+              trackingUrl: shipRes.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(shipRes.waybill)}`
             };
             await updateDoc(doc(db, "orders", orderDocId), shipUpdates);
             Object.assign(currentOrderSnapshot, shipUpdates);

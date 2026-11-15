@@ -245,7 +245,7 @@ const GuestTrack = () => {
                   </div>
 
                   <a
-                    href={order.trackingUrl || (order.awbCode ? `https://ithinklogistics.trackshipment.in/${order.awbCode}` : `https://ithinklogistics.trackshipment.in/`)}
+                    href={order.trackingUrl || (order.awbCode ? `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(order.awbCode)}` : `https://www.ithinklogistics.com/track-order`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-3 rounded-xl bg-[#F8F4EF] hover:bg-[#e5d5df]/50 text-slate-900 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 border border-[#e5d5df] transition-all"

@@ -205,7 +205,7 @@ export async function createOrderShipment(order) {
 
       if (shipmentData && shipmentData.waybill && (shipmentData.status === "Success" || shipmentData.status === "success" || shipmentData.status !== "error")) {
         const waybill = shipmentData.waybill || "";
-        const trackingUrl = shipmentData.tracking_url || (waybill ? `https://ithinklogistics.trackshipment.in/${waybill}` : "");
+        const trackingUrl = shipmentData.tracking_url || (waybill ? `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(waybill)}` : "");
 
         return {
           success: true,
@@ -290,7 +290,7 @@ export async function trackOrderShipment(awbNumber) {
           remark: s.remark,
           reason: s.status_reason
         })),
-        trackingUrl: `https://ithinklogistics.trackshipment.in/${cleanAwb}`,
+        trackingUrl: `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(cleanAwb)}`,
         customer: info.customer_details || null,
         orderDateTime: info.order_date_time || null,
         raw: info

@@ -940,7 +940,7 @@ const Account = () => {
                       <div className="grid sm:grid-cols-2 gap-3 text-xs">
                         <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                           <span className="text-white/40 block mb-1 uppercase font-bold text-[9px]">AWB Tracking Code</span>
-                          <span className="font-mono text-white font-bold">{trackingResult.awb || trackingResult.AWB || "N/A"}</span>
+                          <span className="font-mono text-white font-bold">{trackingResult.awb || trackingResult.AWB || "Pending Courier Assignment"}</span>
                         </div>
                         <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                           <span className="text-white/40 block mb-1 uppercase font-bold text-[9px]">Expected Delivery</span>

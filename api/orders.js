@@ -472,7 +472,7 @@ export default async function handler(req, res) {
       if (shipmentResult.success && shipmentResult.waybill) {
         awbCode = shipmentResult.waybill;
         courierName = shipmentResult.logisticName || "iThink Express Courier";
-        trackingUrl = shipmentResult.trackingUrl || `https://ithinklogistics.trackshipment.in/${awbCode}`;
+        trackingUrl = shipmentResult.trackingUrl || `https://www.ithinklogistics.com/track-order?tracking_number=${encodeURIComponent(awbCode)}`;
         ithinkShipment = {
           waybill: awbCode,
           refnum: shipmentResult.refnum || orderNumber,
