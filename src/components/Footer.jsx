@@ -11,13 +11,14 @@ const Footer = () => {
 
   const sections = [
     {
-      title: "SHOP",
+      title: "STORE LOCATIONS",
       links: [
-        { name: "Handloom Sarees", href: "/shop?cat=Saree#products" },
-        { name: "Dhaniakhali Saree", href: "/shop?q=Dhaniakhali#products" },
-        { name: "Begumpuri Saree", href: "/shop?q=Begumpuri#products" },
-        { name: "Shantipuri Saree", href: "/shop?q=Shantipuri#products" },
-        { name: "Jamdani Saree", href: "/shop?q=Jamdani#products" },
+        {
+          title: "Main Head Office",
+          name: "Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303",
+          address: "Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303",
+          href: "https://maps.app.goo.gl/iYXNhsWM4uDb6S1t5"
+        },
       ]
     },
     {
@@ -149,21 +150,6 @@ const Footer = () => {
                     <span className="text-xs text-slate-600 block leading-relaxed">Shop No 82, Poonam Parkview, Yazoo Park, Global City, Virar West, PIN 401303</span>
                   </div>
                 </div>
-                {/* Legal Entity & KYC Verification Details */}
-                <div className="pt-2.5 border-t border-slate-200/80 space-y-1 text-xs text-slate-600">
-                  <div>
-                    <span className="text-slate-500">Legal Entity Name: </span>
-                    <span className="font-bold text-slate-900">DIPANWITA PATRA</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Official Phone: </span>
-                    <a href="tel:+919831133937" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">+91 9831133937</a>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Official Email: </span>
-                    <a href="mailto:tukasupport@gmail.com" className="font-semibold text-slate-800 hover:text-[#b13896] transition-colors">tukasupport@gmail.com</a>
-                  </div>
-                </div>
               </div>
 
               {/* Social Media Links */}
@@ -194,17 +180,73 @@ const Footer = () => {
                   <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900 border-b-2 border-[#b13896]/30 pb-2.5 inline-block">
                     {section.title}
                   </h4>
-                  <ul className="space-y-3">
-                    {section.links.map((link) => (
-                      <li key={link.name}>
-                        <Link
-                          to={link.href}
-                          className="text-sm sm:text-[15px] text-slate-700 hover:text-[#b13896] transition-colors font-normal hover:translate-x-0.5 inline-block"
-                        >
-                          {link.name}
-                        </Link>
-                      </li>
-                    ))}
+                  <ul className="space-y-3.5">
+                    {section.links.map((link, lIdx) => {
+                      const isExternal = link.href?.startsWith('http://') || link.href?.startsWith('https://') || link.href?.startsWith('//');
+                      const isLocation = Boolean(link.address || (link.title && link.name));
+                      const itemTitle = link.title || (link.address ? link.name : null);
+                      const itemAddress = link.address || (link.title ? link.name : link.name);
+
+                      if (isLocation) {
+                        const LocationCard = (
+                          <div className="group/loc block text-left transition-all">
+                            {itemTitle && (
+                              <span className="text-xs font-bold text-slate-900 block group-hover/loc:text-[#b13896] transition-colors">
+                                {itemTitle}
+                              </span>
+                            )}
+                            <span className="text-[12px] text-slate-600 block leading-relaxed mt-1 group-hover/loc:text-slate-800 transition-colors">
+                              {itemAddress}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#b13896] mt-1 group-hover/loc:underline">
+                              <span>View on Google Map</span>
+                              <ArrowRight size={11} className="transition-transform group-hover/loc:translate-x-0.5" />
+                            </span>
+                          </div>
+                        );
+
+                        return (
+                          <li key={itemTitle || itemAddress || lIdx} className="border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+                            {isExternal ? (
+                              <a
+                                href={link.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                {LocationCard}
+                              </a>
+                            ) : (
+                              <Link to={link.href} className="block">
+                                {LocationCard}
+                              </Link>
+                            )}
+                          </li>
+                        );
+                      }
+
+                      return (
+                        <li key={link.name || lIdx}>
+                          {isExternal ? (
+                            <a
+                              href={link.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm sm:text-[15px] text-slate-700 hover:text-[#b13896] transition-colors font-normal hover:translate-x-0.5 inline-block"
+                            >
+                              {link.name}
+                            </a>
+                          ) : (
+                            <Link
+                              to={link.href}
+                              className="text-sm sm:text-[15px] text-slate-700 hover:text-[#b13896] transition-colors font-normal hover:translate-x-0.5 inline-block"
+                            >
+                              {link.name}
+                            </Link>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}

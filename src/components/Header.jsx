@@ -911,9 +911,9 @@ const LuxuryHeader = () => {
                             >
                               {link.megaMenu.sections.map((section, idx) => (
                                 <div key={idx} className="space-y-2">
-                                  <p className="text-[10px] tracking-[0.25em] uppercase font-bold" style={{ color: '#f4cfeb' }}>
+                                  {/* <p className="text-[10px] tracking-[0.25em] uppercase font-bold" style={{ color: '#f4cfeb' }}>
                                     {section.icon} {section.title}
-                                  </p>
+                                  </p> */}
                                   <ul className="space-y-1.5 pl-3">
                                     {section.items.map((item, i) => (
                                       <li key={i}>

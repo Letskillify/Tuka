@@ -77,10 +77,7 @@ const Contact = () => {
                       Legal Business Name
                     </span>
                     <span className="text-base font-bold text-slate-900 font-sans tracking-normal block">
-                      DIPANWITA PATRA
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-normal" style={{ fontFamily: SANS }}>
-                      Brand Name: House of Tuka / Tuka
+                      Tuka
                     </span>
                   </div>
                 </div>

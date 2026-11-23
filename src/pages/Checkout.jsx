@@ -372,7 +372,7 @@ const Checkout = () => {
 
       const isLoaded = await loadRazorpaySDK();
       if (!isLoaded || !window.Razorpay) {
-        throw new Error("Unable to load Razorpay Payment gateway. Please refresh or try Cash on Delivery.");
+        throw new Error("Unable to load Razorpay Payment gateway. Please refresh and try again.");
       }
 
       const razorpayKey = rData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TzHgCF9oJKx3j4";
@@ -747,20 +747,26 @@ const Checkout = () => {
                 <h2 className="text-xl font-serif text-[#161114]">Payment Protocol</h2>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div
                   onClick={() => setPaymentMethod("online")}
-                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col items-start gap-2 ${paymentMethod === "online"
-                    ? "bg-[#b13896] text-white border-[#b13896] shadow-lg"
-                    : "bg-[#F8F4EF]/50 text-slate-900 border-[#e5d5df] hover:border-[#b13896]"
-                    }`}
+                  className="p-5 rounded-2xl border bg-[#b13896] text-white border-[#b13896] shadow-lg flex flex-col items-start gap-2 cursor-pointer transition-all"
                 >
-                  <CreditCard size={22} />
-                  <span className="text-xs font-bold uppercase tracking-wider">Online Payment Gateway</span>
-                  <span className={`text-[11px] ${paymentMethod === "online" ? "text-white/80" : "text-slate-500"}`}>
-                    UPI, Credit/Debit Cards, Netbanking
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard size={22} />
+                      <span className="text-xs font-bold uppercase tracking-wider">Online Payment Gateway (100% Secure)</span>
+                    </div>
+                    <span className="text-[10px] bg-white/20 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Prepaid</span>
+                  </div>
+                  <span className="text-[11px] text-white/80">
+                    Instant checkout via UPI (Google Pay, PhonePe, Paytm), Credit/Debit Cards & Netbanking
                   </span>
                 </div>
+
+                {/* 
+                === CASH ON DELIVERY (COD) OPTION ===
+                Temporarily disabled as requested. To re-enable COD in future, uncomment this block:
 
                 <div
                   onClick={() => setPaymentMethod("cod")}
@@ -775,6 +781,7 @@ const Checkout = () => {
                     Pay cash upon door delivery
                   </span>
                 </div>
+                */}
               </div>
             </section>
 
