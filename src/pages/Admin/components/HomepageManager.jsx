@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { db } from "../../../components/Firebase";
-import { uploadToCloudinary } from "../../../config/cloudinary";
+import { uploadMediaFile } from "../../../utils/mediaUpload";
 import CloudinaryImageLibrary from "./CloudinaryImageLibrary";
 
 const DEFAULT_HOMEPAGE = {
@@ -50,6 +50,7 @@ const HomepageManager = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingField, setUploadingField] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -81,16 +82,20 @@ const HomepageManager = () => {
   const handleFileUpload = async (field, file) => {
     if (!file) return;
     setUploadingField(field);
+    setUploadProgress(0);
     setErrorMsg("");
     try {
-      const url = await uploadToCloudinary(file);
+      const url = await uploadMediaFile(file, "homepage", (percent) => {
+        setUploadProgress(percent);
+      });
       handleChange(field, url);
-      setSuccessMsg(`Uploaded new media to Cloudinary!`);
+      setSuccessMsg(`Uploaded new media successfully!`);
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
-      setErrorMsg("Cloudinary upload failed: " + err.message);
+      setErrorMsg("Upload failed: " + err.message);
     } finally {
       setUploadingField(null);
+      setUploadProgress(0);
     }
   };
 
@@ -138,6 +143,24 @@ const HomepageManager = () => {
         </button>
       </div>
 
+      {uploadingField && (
+        <div className="bg-white border border-[#b13896]/20 p-4 rounded-xl shadow-sm space-y-2">
+          <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+            <span className="flex items-center gap-2">
+              <Upload size={14} className="text-[#b13896] animate-bounce" />
+              Uploading media ({uploadingField})...
+            </span>
+            <span className="text-[#b13896] font-mono font-bold text-sm">{uploadProgress}%</span>
+          </div>
+          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+            <div
+              className="bg-[#b13896] h-full rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {successMsg && (
         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-4 py-3 rounded-xl">
           <CheckCircle2 size={16} className="text-emerald-600" />
@@ -183,9 +206,9 @@ const HomepageManager = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                  <label className="px-3 py-1.5 bg-white text-slate-900 text-xs font-bold rounded-lg cursor-pointer hover:bg-slate-100">
-                    <Upload size={12} className="inline mr-1" />
-                    Upload Cloudinary
+                  <label className="px-3 py-1.5 bg-white text-slate-900 text-xs font-bold rounded-lg cursor-pointer hover:bg-slate-100 flex items-center gap-1">
+                    <Upload size={12} />
+                    {uploadingField === "heroBgImage" ? `${uploadProgress}%` : "Upload"}
                     <input
                       type="file"
                       accept="image/*"
@@ -236,7 +259,7 @@ const HomepageManager = () => {
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
                   <label className="px-3 py-1.5 bg-white text-slate-900 text-xs font-bold rounded-lg cursor-pointer hover:bg-slate-100 flex items-center gap-1">
                     <Upload size={12} />
-                    {uploadingField === "heroVideoUrl" ? "Uploading..." : "Upload Video to Cloudinary"}
+                    {uploadingField === "heroVideoUrl" ? `${uploadProgress}% Uploading...` : "Upload Video"}
                     <input
                       type="file"
                       accept="video/*"
@@ -315,7 +338,7 @@ const HomepageManager = () => {
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity p-2">
                     <label className="w-full py-1.5 bg-white text-slate-900 text-[11px] font-bold rounded-lg cursor-pointer text-center hover:bg-slate-100 flex items-center justify-center gap-1">
                       <Upload size={12} />
-                      {uploadingField === field ? "Uploading..." : "Upload"}
+                      {uploadingField === field ? `${uploadProgress}%` : "Upload"}
                       <input
                         type="file"
                         accept="image/*"
@@ -371,7 +394,7 @@ const HomepageManager = () => {
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity p-2">
                     <label className="w-full py-1.5 bg-white text-slate-900 text-[11px] font-bold rounded-lg cursor-pointer text-center hover:bg-slate-100 flex items-center justify-center gap-1">
                       <Upload size={12} />
-                      {uploadingField === field ? "Uploading..." : "Upload"}
+                      {uploadingField === field ? `${uploadProgress}%` : "Upload"}
                       <input
                         type="file"
                         accept="image/*"

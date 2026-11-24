@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Award, Leaf, Feather, Sparkles, ArrowRight, Palette, Scissors } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../Firebase';
 import SectionHeader from './SectionHeader';
 
 const MAGENTA = '#b13896';
@@ -150,6 +152,16 @@ const sareeData = [
 
 const SareeShowcase = () => {
   const [activeTab, setActiveTab] = useState(sareeData[0].id);
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "homepage"), (snap) => {
+      if (snap.exists()) {
+        setSettings(snap.data());
+      }
+    });
+    return () => unsub();
+  }, []);
 
   return (
     <section className="py-10 lg:py-16 relative overflow-hidden bg-white">
@@ -216,7 +228,7 @@ const SareeShowcase = () => {
                   <div className={`lg:col-span-6 relative ${isEven ? 'lg:order-1' : 'lg:order-2'}`}>
                     <div className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-lg group-hover:shadow-2xl transition-shadow duration-500">
                       <img
-                        src={item.image}
+                        src={settings?.[`sareeImage_${item.id}`] || item.image}
                         alt={item.title}
                         className="w-full h-[420px] sm:h-[540px] lg:h-[640px] object-cover object-center transition-transform duration-700 group-hover:scale-105"
                       />
